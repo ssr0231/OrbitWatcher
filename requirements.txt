@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+requests
+sgp4
+scipy
+numpy
+apscheduler
