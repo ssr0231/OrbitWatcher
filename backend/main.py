@@ -1,7 +1,4 @@
 # backend/main.py
-# FastAPI application entry point.
-# Registers all routes, starts the scheduler,
-# and serves the API.
 
 import os
 import sys
@@ -9,6 +6,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import API_PREFIX
 from logger import get_logger
@@ -24,8 +23,6 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS — allows the frontend (browser) to call this API
-# Without this, the browser blocks every request
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -33,40 +30,29 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Register all route groups under /api/v1
+# Register API routes
 app.include_router(satellites.router,   prefix=API_PREFIX)
 app.include_router(conjunctions.router, prefix=API_PREFIX)
 app.include_router(analytics.router,    prefix=API_PREFIX)
 app.include_router(maneuvers.router,    prefix=API_PREFIX)
 
+# Serve frontend static files
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
+
 
 @app.on_event("startup")
 async def on_startup():
-    """
-    Runs once when the server starts.
-    1. Initialises the database (creates tables if missing)
-    2. Runs the pipeline once immediately
-    3. Starts the 6-hour scheduler in the background
-    """
     log.info("OrbitWatch API starting...")
     init_db()
-
-    # Run pipeline once on startup so API has data immediately
     log.info("Running initial pipeline on startup...")
     run_pipeline()
-
-    # Start the background scheduler for future cycles
     start_scheduler()
     log.info("OrbitWatch API ready.")
 
 
 @app.get("/")
 def root():
-    return {
-        "status": "success",
-        "message": "OrbitWatch API is running.",
-        "docs": "/docs"
-    }
+    return FileResponse("frontend/index.html")
 
 
 @app.get("/health")

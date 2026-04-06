@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>OrbitWatch — Starlink Collision Intelligence</title>
+  <link rel="stylesheet" href="/static/css/style.css"/>
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="topbar">
+    <div id="logo">OrbitWatch</div>
+    <div id="stats">
+      <span id="stat-sats">Satellites: —</span>
+      <span id="stat-conj">Conjunctions: —</span>
+      <span id="stat-critical">Critical: —</span>
+      <span id="stat-time">UTC: —</span>
+    </div>
+  </div>
+
+  <!-- 3D Globe canvas -->
+  <canvas id="globe-canvas"></canvas>
+
+  <!-- Right panel — alerts -->
+  <div id="side-panel">
+    <div id="panel-title">Collision Alerts</div>
+    <div id="alert-list"></div>
+  </div>
+
+  <!-- Bottom bar — loading status -->
+  <div id="bottombar">
+    <span id="status-msg">Initialising...</span>
+  </div>
+
+  <!-- Libraries loaded from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.1.3/satellite.min.js"></script>
+
+  <!-- Our JS files — order matters -->
+  <script src="/static/js/api.js"></script>
+  <script src="/static/js/globe.js"></script>
+  <script src="/static/js/satellites.js"></script>
+  <script src="/static/js/conjunctions.js"></script>
+  <script src="/static/js/alerts.js"></script>
+  <script src="/static/js/main.js"></script>
+
+</body>
+</html>
