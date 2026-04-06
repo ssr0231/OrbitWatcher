@@ -15,14 +15,25 @@ async function init() {
   setStatus("Initialising globe...");
   initGlobe();
 
-  // Load data
+  // Load all data in parallel
+  setStatus("Loading satellite and conjunction data...");
+  const [conjunctions, analytics, maneuvers] = await Promise.all([
+    loadConjunctions(),
+    fetchAnalytics(),
+    fetchManeuvers(100)
+  ]);
+
+  // Load satellites (needs conjunctions first for color coding)
   await loadSatellites();
-  const conjunctions = await loadConjunctions();
+
+  // Render UI panels
   renderAlerts(conjunctions);
+  renderManeuvers(maneuvers);
 
-  // Start render + propagation loop
-  setStatus("Propagating orbits...");
+  // Build dashboard charts (only renders when dashboard is opened)
+  buildDashboard(conjunctions, analytics);
 
+  // Start animation loop
   function loop() {
     updateSatellitePositions();
     updateClock();
@@ -35,5 +46,4 @@ async function init() {
   setStatus(`Live — ${satRecords.length.toLocaleString()} satellites tracked.`);
 }
 
-// Start everything when page loads
 window.addEventListener("load", init);
