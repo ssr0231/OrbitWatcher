@@ -1,5 +1,4 @@
 // maneuver.js
-// Renders the maneuver suggestions panel.
 
 function renderManeuvers(maneuvers) {
   const list = document.getElementById("maneuver-list");
@@ -12,10 +11,10 @@ function renderManeuvers(maneuvers) {
   `;
 
   for (const m of maneuvers) {
-    const dist = m.miss_distance_km
+    const dist = (m.miss_distance_km !== undefined && m.miss_distance_km !== null)
       ? m.miss_distance_km.toFixed(2)
       : "—";
-    const vel = m.relative_velocity_km_s
+    const vel = (m.relative_velocity_km_s !== undefined && m.relative_velocity_km_s !== null)
       ? m.relative_velocity_km_s.toFixed(2)
       : "—";
 

@@ -1,5 +1,4 @@
 // dashboard.js
-// Builds 4 Chart.js charts from real analytics + conjunction data.
 
 let chartsBuilt = false;
 
@@ -28,7 +27,7 @@ async function buildDashboard(conjunctions, analytics) {
   };
 
   // ── Chart 1: Risk level distribution ──────────────────
-  const riskDist = analytics.risk_distribution;
+  const riskDist   = analytics.risk_distribution || [];
   const riskLabels = riskDist.map(r => r.level.toUpperCase());
   const riskCounts = riskDist.map(r => r.count);
   const riskColors = riskLabels.map(l => {
@@ -61,30 +60,37 @@ async function buildDashboard(conjunctions, analytics) {
   });
 
   // ── Chart 2: Top 10 high-risk satellites ──────────────
-  const topSats  = analytics.top_satellites.slice(0, 10);
+  const topSats  = analytics.top_satellites || [];
   const satNames = topSats.map(s => s.name.replace("STARLINK-", "SL-"));
   const satApps  = topSats.map(s => s.appearances);
 
-  new Chart(document.getElementById("chart-topsats"), {
-    type: "bar",
-    data: {
-      labels: satNames,
-      datasets: [{
-        label: "Conjunctions",
-        data: satApps,
-        backgroundColor: "rgba(100,120,255,0.6)",
-        borderColor:     "rgba(100,120,255,0.9)",
-        borderWidth: 1,
-        borderRadius: 4
-      }]
-    },
-    options: {
-      ...chartDefaults,
-      plugins: {
-        legend: { display: false }
+  if (satNames.length > 0) {
+    new Chart(document.getElementById("chart-topsats"), {
+      type: "bar",
+      data: {
+        labels: satNames,
+        datasets: [{
+          label: "Conjunctions",
+          data: satApps,
+          backgroundColor: "rgba(100,120,255,0.6)",
+          borderColor:     "rgba(100,120,255,0.9)",
+          borderWidth: 1,
+          borderRadius: 4
+        }]
+      },
+      options: {
+        ...chartDefaults,
+        plugins: { legend: { display: false } }
       }
-    }
-  });
+    });
+  } else {
+    const ctx = document.getElementById("chart-topsats");
+    ctx.parentElement.innerHTML += `
+      <div style="color:#5060a0;font-size:11px;
+      text-align:center;padding:40px 0;">
+        No data available yet
+      </div>`;
+  }
 
   // ── Chart 3: Miss distance distribution ───────────────
   const buckets = [
@@ -97,7 +103,8 @@ async function buildDashboard(conjunctions, analytics) {
 
   const distCounts = buckets.map(b =>
     conjunctions.filter(c =>
-      c.miss_distance_km >= b.min && c.miss_distance_km < b.max
+      c.miss_distance_km >= b.min &&
+      c.miss_distance_km < b.max
     ).length
   );
 

@@ -1,6 +1,4 @@
 # backend/routes/maneuvers.py
-# GET /api/v1/maneuvers/{id}
-# Returns maneuver suggestion for a specific conjunction.
 
 import os
 import sys
@@ -16,10 +14,6 @@ router = APIRouter()
 
 @router.get("/maneuvers/{conjunction_id}")
 def get_maneuver(conjunction_id: int):
-    """
-    Returns the maneuver suggestion for a given conjunction ID.
-    Includes both numerical delta-V and human-readable text.
-    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -50,7 +44,6 @@ def get_maneuver(conjunction_id: int):
         )
 
     log.info(f"Served maneuver for conjunction {conjunction_id}.")
-
     return {
         "status": "success",
         "data": dict(row)
@@ -59,9 +52,6 @@ def get_maneuver(conjunction_id: int):
 
 @router.get("/maneuvers")
 def get_all_maneuvers(limit: int = 50):
-    """
-    Returns all maneuver suggestions sorted by delta-V descending.
-    """
     conn = get_connection()
     cursor = conn.cursor()
     cursor.execute("""
@@ -71,6 +61,8 @@ def get_all_maneuvers(limit: int = 50):
             m.delta_v_m_s,
             m.recommendation_text,
             c.risk_score,
+            c.miss_distance_km,
+            c.relative_velocity_km_s,
             s1.name as sat1_name,
             s2.name as sat2_name
         FROM maneuvers m

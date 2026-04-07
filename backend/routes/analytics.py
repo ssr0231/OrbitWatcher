@@ -1,6 +1,4 @@
 # backend/routes/analytics.py
-# GET /api/v1/analytics
-# Returns summary statistics for the dashboard.
 
 import os
 import sys
@@ -16,14 +14,6 @@ router = APIRouter()
 
 @router.get("/analytics")
 def get_analytics():
-    """
-    Returns summary statistics:
-    - Total satellites tracked
-    - Total conjunctions detected
-    - High risk conjunctions (above alert threshold)
-    - Average risk score
-    - Top 5 riskiest satellites by name
-    """
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -52,7 +42,7 @@ def get_analytics():
         JOIN satellites s ON s.id = involved.sid
         GROUP BY s.id
         ORDER BY appearances DESC
-        LIMIT 5
+        LIMIT 10
     """)
     top_satellites = [dict(row) for row in cursor.fetchall()]
 
