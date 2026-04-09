@@ -3,20 +3,16 @@
 function renderManeuvers(maneuvers) {
   const list = document.getElementById("maneuver-list");
   list.innerHTML = `
-    <div style="font-size:11px;letter-spacing:2px;text-transform:uppercase;
-    color:#7090ff;margin-bottom:20px;padding-bottom:12px;
-    border-bottom:1px solid rgba(100,120,255,0.2);">
+    <div class="view-header">
       Maneuver Recommendations — ${maneuvers.length} active
     </div>
   `;
 
   for (const m of maneuvers) {
     const dist = (m.miss_distance_km !== undefined && m.miss_distance_km !== null)
-      ? m.miss_distance_km.toFixed(2)
-      : "—";
+      ? m.miss_distance_km.toFixed(2) : "—";
     const vel = (m.relative_velocity_km_s !== undefined && m.relative_velocity_km_s !== null)
-      ? m.relative_velocity_km_s.toFixed(2)
-      : "—";
+      ? m.relative_velocity_km_s.toFixed(2) : "—";
 
     let riskLevel = "medium";
     if (m.risk_score > 0.00007)      riskLevel = "critical";
@@ -28,18 +24,17 @@ function renderManeuvers(maneuvers) {
       <div class="maneuver-header">
         <div class="maneuver-sats">
           ${m.sat1_name}
-          <span style="color:#5060a0;font-size:11px;margin:0 6px">↔</span>
+          <span style="color:#303858;margin:0 8px;font-weight:300">↔</span>
           ${m.sat2_name}
         </div>
         <div class="maneuver-deltav">
-          ${m.delta_v_m_s.toFixed(4)}
-          <span>m/s delta-V</span>
+          ${m.delta_v_m_s.toFixed(4)}<span>m/s delta-V</span>
         </div>
       </div>
       <div class="maneuver-stats">
-        <span>Miss distance: <b style="color:#c0d0ff">${dist} km</b></span>
-        <span>Rel. velocity: <b style="color:#c0d0ff">${vel} km/s</b></span>
-        <span>Risk score: <b style="color:#c0d0ff">${m.risk_score.toExponential(2)}</b></span>
+        <span>Miss distance: <b>${dist} km</b></span>
+        <span>Rel. velocity: <b>${vel} km/s</b></span>
+        <span>Risk: <b>${m.risk_score.toExponential(2)}</b></span>
         <span class="risk-badge risk-${riskLevel}">${riskLevel}</span>
       </div>
       <div class="maneuver-text">${m.recommendation_text}</div>
