@@ -1,5 +1,4 @@
 // main.js
-// Entry point — initialises everything in the correct order.
 
 function setStatus(msg) {
   document.getElementById("status-msg").textContent = msg;
@@ -7,33 +6,29 @@ function setStatus(msg) {
 
 function updateClock() {
   const now = new Date();
-  const utc = now.toUTCString().slice(17, 25);
-  document.getElementById("stat-time").textContent = `UTC: ${utc}`;
+  document.getElementById("stat-time").textContent =
+    "UTC: " + now.toUTCString().slice(17, 25);
 }
 
 async function init() {
   setStatus("Initialising globe...");
   initGlobe();
 
-  // Load all data in parallel
-  setStatus("Loading satellite and conjunction data...");
+  setStatus("Loading data...");
   const [conjunctions, analytics, maneuvers] = await Promise.all([
     loadConjunctions(),
     fetchAnalytics(),
     fetchManeuvers(100)
   ]);
 
-  // Load satellites (needs conjunctions first for color coding)
   await loadSatellites();
 
-  // Render UI panels
+  // Initialise all modules
   renderAlerts(conjunctions);
   renderManeuvers(maneuvers);
-
-  // Build dashboard charts (only renders when dashboard is opened)
   buildDashboard(conjunctions, analytics);
+  initSearch(conjunctions);
 
-  // Start animation loop
   function loop() {
     updateSatellitePositions();
     updateClock();

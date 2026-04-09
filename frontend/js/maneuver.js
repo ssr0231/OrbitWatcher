@@ -1,12 +1,10 @@
 // maneuver.js
 
 function renderManeuvers(maneuvers) {
+  setExportData(maneuvers);
+
   const list = document.getElementById("maneuver-list");
-  list.innerHTML = `
-    <div class="view-header">
-      Maneuver Recommendations — ${maneuvers.length} active
-    </div>
-  `;
+  list.innerHTML = "";
 
   for (const m of maneuvers) {
     const dist = (m.miss_distance_km !== undefined && m.miss_distance_km !== null)
