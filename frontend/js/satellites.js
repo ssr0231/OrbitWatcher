@@ -7,18 +7,21 @@ let satPositions    = null;
 let satColors       = null;
 let satRecords      = [];
 let conjunctionSet  = new Set();
+const flashingIndices = new Set();
 
 async function loadSatellites() {
   setStatus("Fetching TLE data from backend...");
   const tles = await fetchTLEs();
-  setStatus(`Parsing ${tles.length} satellite TLEs...`);
 
+  if (!tles.length) { setStatus("Warning: no TLE data received."); return; }
+
+  setStatus(`Parsing ${tles.length} satellite TLEs...`);
   satRecords = [];
   for (const sat of tles) {
     try {
       const satrec = satellite.twoline2satrec(sat.tle_line1, sat.tle_line2);
       satRecords.push({ satrec, name: sat.name, id: sat.id });
-    } catch (e) { /* skip malformed */ }
+    } catch (e) {}
   }
 
   setStatus(`Building geometry for ${satRecords.length} satellites...`);
@@ -28,9 +31,9 @@ async function loadSatellites() {
 }
 
 function buildSatelliteGeometry() {
-  const count   = satRecords.length;
-  satPositions  = new Float32Array(count * 3);
-  satColors     = new Float32Array(count * 3);
+  const count  = satRecords.length;
+  satPositions = new Float32Array(count * 3);
+  satColors    = new Float32Array(count * 3);
 
   for (let i = 0; i < count; i++) {
     satColors[i * 3 + 0] = 0.38;
@@ -43,11 +46,8 @@ function buildSatelliteGeometry() {
   geometry.setAttribute("color",    new THREE.BufferAttribute(satColors, 3));
 
   const material = new THREE.PointsMaterial({
-    size:           0.007,
-    vertexColors:   true,
-    transparent:    true,
-    opacity:        0.85,
-    sizeAttenuation: true
+    size: 0.007, vertexColors: true,
+    transparent: true, opacity: 0.85, sizeAttenuation: true
   });
 
   satellitePoints = new THREE.Points(geometry, material);
@@ -59,25 +59,22 @@ function updateSatellitePositions() {
   const now = new Date();
 
   for (let i = 0; i < satRecords.length; i++) {
+    if (flashingIndices.has(i)) continue;
     try {
       const pv = satellite.propagate(satRecords[i].satrec, now);
       if (!pv || !pv.position) continue;
       const p = pv.position;
       const s = SAT_SCALE;
-      satPositions[i * 3 + 0] =  p.x * s;
-      satPositions[i * 3 + 1] =  p.z * s;
-      satPositions[i * 3 + 2] = -p.y * s;
+      satPositions[i*3+0] =  p.x * s;
+      satPositions[i*3+1] =  p.z * s;
+      satPositions[i*3+2] = -p.y * s;
 
       if (conjunctionSet.has(satRecords[i].id)) {
-        satColors[i * 3 + 0] = 1.0;
-        satColors[i * 3 + 1] = 0.18;
-        satColors[i * 3 + 2] = 0.18;
+        satColors[i*3+0] = 1.0; satColors[i*3+1] = 0.18; satColors[i*3+2] = 0.18;
       } else {
-        satColors[i * 3 + 0] = 0.38;
-        satColors[i * 3 + 1] = 0.62;
-        satColors[i * 3 + 2] = 1.0;
+        satColors[i*3+0] = 0.38; satColors[i*3+1] = 0.62; satColors[i*3+2] = 1.0;
       }
-    } catch (e) { /* keep last position */ }
+    } catch (e) {}
   }
 
   satellitePoints.geometry.attributes.position.needsUpdate = true;
@@ -91,7 +88,6 @@ function markHighRiskSatellites(conjunctions) {
     conjunctionSet.add(c.sat2_id);
   }
 
-  // Draw orbit trails for top 10 highest-risk satellites
   clearTrails();
   const topIds = new Set();
   conjunctions.slice(0, 10).forEach(c => {
@@ -100,8 +96,6 @@ function markHighRiskSatellites(conjunctions) {
   });
 
   for (const rec of satRecords) {
-    if (topIds.has(rec.id)) {
-      drawOrbitTrail(rec);
-    }
+    if (topIds.has(rec.id)) drawOrbitTrail(rec);
   }
 }

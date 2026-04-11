@@ -34,23 +34,29 @@ Run locally — see setup below.
 
 ## Architecture
 
-CelesTrak TLE Feed (free, real-time)
-↓
-FastAPI Backend (Python)
-├── SGP4 Propagator       — orbital position computation
-├── k-d Tree Screener     — conjunction candidate detection
-├── Risk Scorer           — velocity-weighted distance formula
-├── Maneuver Optimizer    — delta-V burn recommendations
-└── SQLite Database       — WAL mode, 3-table schema
-↓
-REST API  /api/v1/tles | /conjunctions | /analytics | /maneuvers
-↓
+CelesTrak (free TLE feed)
+│
+▼
+FastAPI Backend
+├── tle_fetcher.py    →  fetch + retry logic
+├── propagator.py     →  SGP4 orbital position computation
+├── conjunction.py    →  k-d tree screening + risk scoring
+├── optimizer.py      →  delta-V maneuver recommendations
+├── scheduler.py      →  runs pipeline every 6 hours
+└── SQLite database   →  WAL mode, satellites/conjunctions/maneuvers
+│
+▼
+REST API  (FastAPI)
+├── GET /api/v1/tles
+├── GET /api/v1/conjunctions
+├── GET /api/v1/analytics
+└── GET /api/v1/maneuvers
+│
+▼
 Browser Frontend
-├── Three.js              — 3D Earth globe rendering
-├── satellite.js          — client-side SGP4 (60 FPS positions)
-└── Chart.js              — analytics dashboard
-
-
+├── Three.js      →  3D Earth globe + starfield
+├── satellite.js  →  client-side SGP4 propagation (60 FPS)
+└── Chart.js      →  analytics dashboard
 ---
 
 ## Tech Stack
@@ -125,39 +131,40 @@ Each term is physically grounded:
 ## Project Structure
 
 OrbitWatcher/
+├── config.py                        ← all constants
+├── logger.py                        ← logging setup
+├── requirements.txt
 ├── backend/
-│   ├── main.py              — FastAPI app, CORS, startup
-│   ├── database.py          — SQLite schema, WAL mode
-│   ├── scheduler.py         — 6-hour pipeline orchestrator
+│   ├── main.py                      ← FastAPI app, CORS, startup
+│   ├── database.py                  ← SQLite schema, WAL mode
+│   ├── scheduler.py                 ← 6-hour pipeline orchestrator
 │   ├── services/
-│   │   ├── tle_fetcher.py   — CelesTrak fetch + retry
-│   │   ├── propagator.py    — SGP4 batch propagation
-│   │   ├── conjunction.py   — k-d tree screening + risk
-│   │   └── optimizer.py     — delta-V maneuver logic
+│   │   ├── tle_fetcher.py           ← CelesTrak fetch + retry
+│   │   ├── propagator.py            ← SGP4 batch propagation
+│   │   ├── conjunction.py           ← k-d tree screening + risk
+│   │   └── optimizer.py             ← delta-V maneuver logic
 │   └── routes/
 │       ├── satellites.py
 │       ├── conjunctions.py
 │       ├── analytics.py
 │       └── maneuvers.py
-├── frontend/
-│   ├── index.html
-│   ├── css/style.css
-│   └── js/
-│       ├── api.js           — backend fetch calls
-│       ├── globe.js         — Three.js scene + Earth texture
-│       ├── satellites.js    — SGP4 propagation loop
-│       ├── conjunctions.js  — risk overlay
-│       ├── alerts.js        — side panel
-│       ├── dashboard.js     — Chart.js analytics
-│       ├── maneuver.js      — delta-V cards
-│       ├── search.js        — satellite search
-│       ├── inspector.js     — satellite detail panel
-│       ├── export.js        — CSV/JSON export
-│       ├── router.js        — view switching
-│       └── main.js          — entry point
-├── config.py                — all constants
-├── logger.py                — logging setup
-└── requirements.txt
+└── frontend/
+├── index.html
+├── css/
+│   └── style.css
+└── js/
+├── api.js                   ← backend fetch calls
+├── globe.js                 ← Three.js scene + Earth texture
+├── satellites.js            ← SGP4 propagation loop
+├── conjunctions.js          ← risk color overlay
+├── alerts.js                ← collision alert panel
+├── dashboard.js             ← Chart.js analytics
+├── maneuver.js              ← delta-V recommendation cards
+├── search.js                ← satellite search + zoom
+├── inspector.js             ← satellite detail overlay
+├── export.js                ← CSV/JSON export
+├── router.js                ← view switching
+└── main.js                  ← entry point
 
 ---
 
