@@ -4,10 +4,10 @@ function showView(view) {
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
   document.getElementById(`btn-${view}`).classList.add("active");
 
-  const sidePanel   = document.getElementById("side-panel");
-  const searchBar   = document.getElementById("search-bar");
-  const dashView    = document.getElementById("dashboard-view");
-  const manView     = document.getElementById("maneuvers-view");
+  const sidePanel = document.getElementById("side-panel");
+  const searchBar = document.getElementById("search-bar");
+  const dashView  = document.getElementById("dashboard-view");
+  const manView   = document.getElementById("maneuvers-view");
 
   dashView.classList.add("hidden");
   manView.classList.add("hidden");

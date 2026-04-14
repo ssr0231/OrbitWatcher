@@ -16,8 +16,10 @@ function openInspector(name, rec, conjunctions) {
       const v   = pv.velocity;
       const alt = (Math.sqrt(p.x**2 + p.y**2 + p.z**2) - 6371.0).toFixed(1);
       const spd = v ? Math.sqrt(v.x**2 + v.y**2 + v.z**2).toFixed(3) : "—";
+      const altNum = parseFloat(alt);
+      const orbitType = altNum < 2000 ? "LEO" : altNum < 35786 ? "MEO" : "GEO";
       posHTML = `
-        <div>Altitude: <b>${alt} km</b></div>
+        <div>Altitude: <b>${alt} km</b> <span style="color:#404a70;font-size:10px">${orbitType}</span></div>
         <div>Speed: <b>${spd} km/s</b></div>
         <div style="font-size:10px;color:#303858;margin-top:2px">
           ECI: ${p.x.toFixed(0)}, ${p.y.toFixed(0)}, ${p.z.toFixed(0)} km

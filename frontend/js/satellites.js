@@ -12,7 +12,6 @@ const flashingIndices = new Set();
 async function loadSatellites() {
   setStatus("Fetching TLE data from backend...");
   const tles = await fetchTLEs();
-
   if (!tles.length) { setStatus("Warning: no TLE data received."); return; }
 
   setStatus(`Parsing ${tles.length} satellite TLEs...`);

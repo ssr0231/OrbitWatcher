@@ -61,19 +61,6 @@ function selectSatellite(name) {
   const rec = satRecords.find(r => r.name === name);
   if (!rec) return;
 
-  try {
-    const pv = satellite.propagate(rec.satrec, new Date());
-    if (pv && pv.position) {
-      const p    = pv.position;
-      const dist = Math.sqrt(p.x**2 + p.y**2 + p.z**2);
-      camera.position.set(
-        (p.x / dist) * 2.2,
-        (p.z / dist) * 2.2,
-        (-p.y / dist) * 2.2
-      );
-    }
-  } catch(e) {}
-
   openInspector(name, rec, conjunctionLookup[name] || []);
   flashSatellite(rec.id);
 }

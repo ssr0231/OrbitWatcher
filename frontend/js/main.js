@@ -16,31 +16,20 @@ async function init() {
 
   setStatus("Loading data from server...");
 
-  // Step 1 — fetch all data in parallel
   const [conjunctions, analytics, maneuvers] = await Promise.all([
     loadConjunctions(),
     fetchAnalytics(),
     fetchManeuvers(100)
   ]);
 
-  // Step 2 — update stats bar
   updateConjunctionStats(conjunctions);
-
-  // Step 3 — load satellites (populates satRecords)
   await loadSatellites();
-
-  // Step 4 — NOW mark risk colors + draw trails (satRecords ready)
   markHighRiskSatellites(conjunctions);
-
-  // Step 5 — init search (needs satRecords)
   initSearch(conjunctions);
-
-  // Step 6 — render UI panels
   renderAlerts(conjunctions);
   renderManeuvers(maneuvers);
   buildDashboard(conjunctions, analytics);
 
-  // Step 7 — start animation
   function loop() {
     updateSatellitePositions();
     updateClock();

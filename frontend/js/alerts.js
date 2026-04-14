@@ -9,8 +9,7 @@ function renderAlerts(conjunctions) {
     const vel   = c.relative_velocity_km_s.toFixed(2);
     const risk  = c.risk_score.toExponential(2);
 
-    let level     = "medium";
-    let riskClass = "alert-risk-medium";
+    let level = "medium", riskClass = "alert-risk-medium";
     if (c.miss_distance_km < 10)      { level = "critical"; riskClass = "alert-risk-critical"; }
     else if (c.miss_distance_km < 25) { level = "high";     riskClass = "alert-risk-high"; }
 
