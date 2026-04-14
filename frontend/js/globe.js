@@ -8,6 +8,7 @@ let isDragging = false;
 let previousMouse = { x: 0, y: 0 };
 let earthGroup;
 let trailLines = [];
+let autoRotate = true;
 
 function initGlobe() {
   scene = new THREE.Scene();
@@ -163,8 +164,14 @@ function clearTrails() {
   trailLines = [];
 }
 
+function toggleRotation() {
+  autoRotate = !autoRotate;
+  const btn = document.getElementById("btn-rotation");
+  if (btn) btn.textContent = autoRotate ? "⏸ Rotation" : "▶ Rotation";
+}
+
 function renderLoop() {
   requestAnimationFrame(renderLoop);
-  earthGroup.rotation.y += 0.0005;
+  if (autoRotate) earthGroup.rotation.y += 0.0005;
   renderer.render(scene, camera);
 }

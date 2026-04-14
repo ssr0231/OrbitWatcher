@@ -377,13 +377,40 @@ body {
 #bottombar {
   position: absolute;
   bottom: 0; left: 0; right: 0;
-  height: 28px;
+  height: 32px;
   background: rgba(6,6,26,0.96);
   border-top: 1px solid rgba(90,110,255,0.15);
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 18px;
   z-index: 20;
+}
+
+#status-msg {
+  font-size: 10px;
+  color: #404a70;
+  letter-spacing: 0.8px;
+}
+
+#btn-rotation {
+  background: rgba(107,138,255,0.1);
+  border: 1px solid rgba(90,110,255,0.25);
+  color: #7080b0;
+  padding: 4px 14px;
+  border-radius: 5px;
+  font-family: 'Inter', sans-serif;
+  font-size: 10px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  letter-spacing: 0.5px;
+}
+
+#btn-rotation:hover {
+  background: rgba(107,138,255,0.2);
+  border-color: rgba(107,138,255,0.5);
+  color: #a0b4ff;
 }
 
 #status-msg {

@@ -86,15 +86,5 @@ function markHighRiskSatellites(conjunctions) {
     conjunctionSet.add(c.sat1_id);
     conjunctionSet.add(c.sat2_id);
   }
-
-  clearTrails();
-  const topIds = new Set();
-  conjunctions.slice(0, 10).forEach(c => {
-    topIds.add(c.sat1_id);
-    topIds.add(c.sat2_id);
-  });
-
-  for (const rec of satRecords) {
-    if (topIds.has(rec.id)) drawOrbitTrail(rec);
-  }
+  // No auto-drawn trails — globe stays clean on load
 }
