@@ -61,11 +61,38 @@ function selectSatellite(name) {
   const rec = satRecords.find(r => r.name === name);
   if (!rec) return;
 
-  openInspector(name, rec, conjunctionLookup[name] || []);
-  flashSatellite(rec.id);
+  const conjs = conjunctionLookup[name] || [];
+
+  // Open inspector with orbital parameters
+  openInspector(name, rec, conjs);
+
+  // Clear previous trails
+  clearSelectionTrail();
+
+  // Draw teal orbit trail for this satellite
+  drawSelectionTrail(rec);
+
+  // If it has a conjunction partner, draw that in red too
+  if (conjs.length > 0) {
+    const partnerName = conjs[0].sat1_name === name
+      ? conjs[0].sat2_name
+      : conjs[0].sat1_name;
+    const partner = satRecords.find(r => r.name === partnerName);
+    if (partner) drawSecondaryTrail(partner);
+  }
+
+  // Rotate globe to face the satellite's current longitude
+  try {
+    const pv = satellite.propagate(rec.satrec, new Date());
+    if (pv && pv.position) {
+      const p   = pv.position;
+      const lon = Math.atan2(p.y, p.x);
+      earthGroup.rotation.y = -lon;
+    }
+  } catch(e) {}
 }
 
-document.addEventListener("click", (e) => {
+document.addEventListener("click", e => {
   if (!e.target.closest("#search-bar")) {
     const box = document.getElementById("search-results");
     if (box) box.style.display = "none";

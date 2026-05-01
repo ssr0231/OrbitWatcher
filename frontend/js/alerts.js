@@ -24,12 +24,27 @@ function renderAlerts(conjunctions) {
     `;
 
     item.addEventListener("click", () => {
-      document.querySelectorAll(".alert-item").forEach(el => el.classList.remove("selected"));
+      document.querySelectorAll(".alert-item")
+        .forEach(el => el.classList.remove("selected"));
       item.classList.add("selected");
-      const rec = satRecords.find(r => r.name === c.sat1_name);
-      if (rec) openInspector(c.sat1_name, rec, [c]);
-      flashSatellite(c.sat1_id);
-      flashSatellite(c.sat2_id);
+
+      // Find both satellite records
+      const rec1 = satRecords.find(r => r.name === c.sat1_name);
+      const rec2 = satRecords.find(r => r.name === c.sat2_name);
+
+      // Clear any existing trails first
+      clearSelectionTrail();
+
+      // Draw teal orbit trail for sat1, open inspector for it
+      if (rec1) {
+        openInspector(c.sat1_name, rec1, [c]);
+        drawSelectionTrail(rec1);
+      }
+
+      // Draw red orbit trail for sat2
+      if (rec2) {
+        drawSecondaryTrail(rec2);
+      }
     });
 
     list.appendChild(item);

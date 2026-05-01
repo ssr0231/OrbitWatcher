@@ -34,10 +34,11 @@ function buildSatelliteGeometry() {
   satPositions = new Float32Array(count * 3);
   satColors    = new Float32Array(count * 3);
 
+  // Default: dim orange-yellow until first position update
   for (let i = 0; i < count; i++) {
-    satColors[i * 3 + 0] = 0.38;
-    satColors[i * 3 + 1] = 0.62;
-    satColors[i * 3 + 2] = 1.0;
+    satColors[i * 3 + 0] = 0.8;
+    satColors[i * 3 + 1] = 0.5;
+    satColors[i * 3 + 2] = 0.1;
   }
 
   const geometry = new THREE.BufferGeometry();
@@ -45,17 +46,41 @@ function buildSatelliteGeometry() {
   geometry.setAttribute("color",    new THREE.BufferAttribute(satColors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.007, vertexColors: true,
-    transparent: true, opacity: 0.85, sizeAttenuation: true
+    size: 0.008,
+    vertexColors: true,
+    transparent: true,
+    opacity: 0.9,
+    sizeAttenuation: true
   });
 
   satellitePoints = new THREE.Points(geometry, material);
   earthGroup.add(satellitePoints);
 }
 
+// Returns RGB color based on altitude — matches reference image palette
+function _altitudeColor(altKm) {
+  if (altKm > 560) {
+    // High shell — green (like new gen-2 Starlinks)
+    return [0.1, 0.9, 0.2];
+  } else if (altKm > 530) {
+    // Upper-mid shell — yellow-green
+    return [0.6, 0.9, 0.1];
+  } else if (altKm > 500) {
+    // Mid shell — yellow
+    return [1.0, 0.85, 0.0];
+  } else if (altKm > 470) {
+    // Lower-mid shell — orange-yellow
+    return [1.0, 0.65, 0.05];
+  } else {
+    // Low shell / raising orbit — orange
+    return [1.0, 0.4, 0.05];
+  }
+}
+
 function updateSatellitePositions() {
   if (!satRecords.length || !satPositions) return;
   const now = new Date();
+  const R   = 6371.0;
 
   for (let i = 0; i < satRecords.length; i++) {
     if (flashingIndices.has(i)) continue;
@@ -64,14 +89,23 @@ function updateSatellitePositions() {
       if (!pv || !pv.position) continue;
       const p = pv.position;
       const s = SAT_SCALE;
+
       satPositions[i*3+0] =  p.x * s;
       satPositions[i*3+1] =  p.z * s;
       satPositions[i*3+2] = -p.y * s;
 
       if (conjunctionSet.has(satRecords[i].id)) {
-        satColors[i*3+0] = 1.0; satColors[i*3+1] = 0.18; satColors[i*3+2] = 0.18;
+        // High risk — bright red, overrides altitude color
+        satColors[i*3+0] = 1.0;
+        satColors[i*3+1] = 0.1;
+        satColors[i*3+2] = 0.1;
       } else {
-        satColors[i*3+0] = 0.38; satColors[i*3+1] = 0.62; satColors[i*3+2] = 1.0;
+        // Color by altitude
+        const alt = Math.sqrt(p.x**2 + p.y**2 + p.z**2) - R;
+        const [r, g, b] = _altitudeColor(alt);
+        satColors[i*3+0] = r;
+        satColors[i*3+1] = g;
+        satColors[i*3+2] = b;
       }
     } catch (e) {}
   }
