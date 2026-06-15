@@ -34,29 +34,88 @@ Run locally — see setup below.
 
 ## Architecture
 
-CelesTrak (free TLE feed)
-│
-▼
-FastAPI Backend
-├── tle_fetcher.py    →  fetch + retry logic
-├── propagator.py     →  SGP4 orbital position computation
-├── conjunction.py    →  k-d tree screening + risk scoring
-├── optimizer.py      →  delta-V maneuver recommendations
-├── scheduler.py      →  runs pipeline every 6 hours
-└── SQLite database   →  WAL mode, satellites/conjunctions/maneuvers
-│
-▼
-REST API  (FastAPI)
-├── GET /api/v1/tles
-├── GET /api/v1/conjunctions
-├── GET /api/v1/analytics
-└── GET /api/v1/maneuvers
-│
-▼
-Browser Frontend
-├── Three.js      →  3D Earth globe + starfield
-├── satellite.js  →  client-side SGP4 propagation (60 FPS)
-└── Chart.js      →  analytics dashboard
+CelesTrak GP Endpoint (internet)
+        │
+        │ HTTP GET (every 6 hours via APScheduler)
+        │ retry logic: 3 attempts, 10s delay, fallback to cached data
+        ▼
+tle_fetcher.py
+        │ parse + validate + upsert to database
+        │ 159.6 ms
+        ▼
+SQLite: satellites table
+        │
+        ▼
+propagator.py
+        │ SGP4 batch propagation → ECI positions + velocities (km, km/s)
+        │ 208.2 ms  ← pipeline bottleneck (44% of total)
+        ▼
+conjunction.py
+        │ Stage 1: Altitude shell filter (100 km bands) — eliminates ~98% of pairs
+        │ Stage 2: scipy KDTree.query_pairs(r=50 km) on surviving candidates
+        │ Stage 3: Risk score + TCA estimation for each detected pair
+        │ 87.7 ms
+        ▼
+SQLite: conjunctions table
+        │
+        ▼
+optimizer.py
+        │ Delta-V computation for high-risk pairs
+        │ Recommendation text generation
+        │ 17.1 ms
+        ▼
+SQLite: maneuvers table
+        │
+        ▼ (read-only, no computation per request)
+FastAPI REST API — 4 endpoints
+        │
+        ├── GET /api/v1/tles          → all 10,303 TLE records (for browser)
+        ├── GET /api/v1/conjunctions  → top-N pairs sorted by risk DESC
+        ├── GET /api/v1/analytics     → summary statistics
+        └── GET /api/v1/maneuvers     → delta-V recommendations
+        │
+        ▼
+Browser (single HTML page, no build toolchain)
+        │
+        ├── satellite.js 4.1.3   → SGP4 propagation in browser @ 60 FPS
+        ├── Three.js r128        → 3D globe, BufferGeometry (1 GPU draw call)
+        └── Chart.js 4.4.0       → Analytics charts
+---
+
+## Database Schema
+
+SQLite location: C:/OrbitWatchData/orbitwatch.db
+Log file:        C:/OrbitWatchData/orbitwatch.log
+Mode:            WAL (Write-Ahead Logging — allows concurrent reads during writes)
+
+TABLE: satellites
+  id            INTEGER PRIMARY KEY AUTOINCREMENT
+  name          TEXT            (e.g. "STARLINK-1234")
+  tle_line1     TEXT
+  tle_line2     TEXT
+  last_updated  TEXT            (ISO 8601 UTC)
+
+TABLE: conjunctions
+  id                     INTEGER PRIMARY KEY AUTOINCREMENT
+  sat1_id                INTEGER FK → satellites.id
+  sat2_id                INTEGER FK → satellites.id
+  miss_distance_km       REAL
+  relative_velocity_km_s REAL
+  risk_score             REAL
+  timestamp              TEXT
+
+TABLE: maneuvers
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  conjunction_id      INTEGER FK → conjunctions.id
+  delta_v_m_s         REAL
+  recommendation_text TEXT
+
+INDEXES (5 total):
+  idx_conjunctions_risk      ON conjunctions(risk_score DESC)
+  idx_conjunctions_sat1      ON conjunctions(sat1_id)
+  idx_conjunctions_sat2      ON conjunctions(sat2_id)
+  idx_satellites_name        ON satellites(name)
+  idx_maneuvers_conjunction  ON maneuvers(conjunction_id)
 ---
 
 ## Tech Stack
@@ -131,40 +190,54 @@ Each term is physically grounded:
 ## Project Structure
 
 OrbitWatcher/
-├── config.py                        ← all constants
-├── logger.py                        ← logging setup
+├── config.py                    ← ALL constants (thresholds, paths, URLs)
+├── logger.py                    ← Centralized logging (writes to C:/OrbitWatchData/)
 ├── requirements.txt
+│
 ├── backend/
-│   ├── main.py                      ← FastAPI app, CORS, startup
-│   ├── database.py                  ← SQLite schema, WAL mode
-│   ├── scheduler.py                 ← 6-hour pipeline orchestrator
+│   ├── main.py                  ← FastAPI app entry, CORS, static files, scheduler start
+│   ├── database.py              ← SQLite init, WAL mode, 3 tables, 5 indexes
+│   ├── scheduler.py             ← APScheduler 6-hour pipeline + run_pipeline_timed()
+│   │
 │   ├── services/
-│   │   ├── tle_fetcher.py           ← CelesTrak fetch + retry
-│   │   ├── propagator.py            ← SGP4 batch propagation
-│   │   ├── conjunction.py           ← k-d tree screening + risk
-│   │   └── optimizer.py             ← delta-V maneuver logic
+│   │   ├── tle_fetcher.py       ← CelesTrak fetch, parse, validate, store
+│   │   ├── propagator.py        ← SGP4 batch propagation, altitude filtering
+│   │   ├── conjunction.py       ← Altitude shell + k-d tree screening, risk scoring
+│   │   ├── conjunction_bruteforce.py  ← O(n²) oracle (RESEARCH ONLY, never in prod)
+│   │   └── optimizer.py         ← Delta-V maneuver computation
+│   │
 │   └── routes/
-│       ├── satellites.py
-│       ├── conjunctions.py
-│       ├── analytics.py
-│       └── maneuvers.py
-└── frontend/
-├── index.html
-├── css/
-│   └── style.css
-└── js/
-├── api.js                   ← backend fetch calls
-├── globe.js                 ← Three.js scene + Earth texture
-├── satellites.js            ← SGP4 propagation loop
-├── conjunctions.js          ← risk color overlay
-├── alerts.js                ← collision alert panel
-├── dashboard.js             ← Chart.js analytics
-├── maneuver.js              ← delta-V recommendation cards
-├── search.js                ← satellite search + zoom
-├── inspector.js             ← satellite detail overlay
-├── export.js                ← CSV/JSON export
-├── router.js                ← view switching
-└── main.js                  ← entry point
+│       ├── satellites.py        ← GET /api/v1/tles
+│       ├── conjunctions.py      ← GET /api/v1/conjunctions
+│       ├── analytics.py         ← GET /api/v1/analytics
+│       └── maneuvers.py         ← GET /api/v1/maneuvers
+│
+├── frontend/
+│   ├── index.html               ← Single page app, script load order is critical
+│   ├── css/style.css
+│   └── js/
+│       ├── api.js               ← window.location.origin base URL, 4 fetch functions
+│       ├── globe.js             ← Three.js scene, dark Earth, trails, rotation toggle
+│       ├── satellites.js        ← BufferGeometry, altitude colors, markHighRisk
+│       ├── inspector.js         ← Satellite detail panel, orbital params, flashSatellite→trail
+│       ├── alerts.js            ← Collision alert panel, alert→trail integration
+│       ├── conjunctions.js      ← Load conjunctions, updateConjunctionStats
+│       ├── dashboard.js         ← Chart.js 4 charts
+│       ├── maneuver.js          ← Maneuver cards panel
+│       ├── search.js            ← Autocomplete search, RISK badge
+│       ├── router.js            ← View switching (Globe/Analytics/Maneuvers)
+│       ├── export.js            ← CSV and JSON download
+│       └── main.js              ← Init sequence, clock, animation loop
+│
+├── benchmark.py                 ← Scalability experiment (n=1k–10k, 5 repeats)
+├── generate_figures.py          ← 4 matplotlib paper figures
+├── benchmark_scalability.json   ← Raw experiment data
+├── benchmark_completeness.json  ← Raw experiment data
+├── pipeline_timing.json         ← Raw experiment data
+├── fig1_runtime_scaling.pdf/.png
+├── fig2_speedup.pdf/.png
+├── fig3_completeness.pdf/.png
+└── fig4_pipeline_breakdown.pdf/.png
 
 ---
 
