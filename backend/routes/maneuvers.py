@@ -25,6 +25,7 @@ def get_maneuver(conjunction_id: int):
             c.miss_distance_km,
             c.relative_velocity_km_s,
             c.risk_score,
+            c.tca_seconds,
             s1.name as sat1_name,
             s2.name as sat2_name
         FROM maneuvers m
@@ -63,6 +64,7 @@ def get_all_maneuvers(limit: int = 50):
             c.risk_score,
             c.miss_distance_km,
             c.relative_velocity_km_s,
+            c.tca_seconds,
             s1.name as sat1_name,
             s2.name as sat2_name
         FROM maneuvers m

@@ -58,11 +58,22 @@ def init_db():
             miss_distance_km       REAL NOT NULL,
             relative_velocity_km_s REAL NOT NULL,
             risk_score             REAL NOT NULL,
+            tca_seconds            REAL,
             timestamp              TEXT NOT NULL,
             FOREIGN KEY (sat1_id) REFERENCES satellites(id),
             FOREIGN KEY (sat2_id) REFERENCES satellites(id)
         )
     """)
+
+    # Migration: if upgrading from a database created before TCA was
+    # tracked, the table above already existed without this column and
+    # CREATE TABLE IF NOT EXISTS will not have added it. Add it now.
+    # Safe to run every startup — silently no-ops once the column exists.
+    try:
+        cursor.execute("ALTER TABLE conjunctions ADD COLUMN tca_seconds REAL")
+        log.info("Migrated existing database: added tca_seconds column.")
+    except sqlite3.OperationalError:
+        pass  # column already exists
 
     # Table 3: maneuvers
     cursor.execute("""

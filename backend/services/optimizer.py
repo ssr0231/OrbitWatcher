@@ -72,17 +72,23 @@ def generate_recommendation_text(
     """
     Generates a human-readable maneuver recommendation.
     This is what gets shown in the UI alert panel.
+
+    tca_seconds can be positive (closest approach still ahead),
+    negative (closest approach already passed), or the 999.0
+    sentinel (relative motion too small to estimate meaningfully).
     """
-    if tca_seconds < 999:
-        tca_str = f"{tca_seconds:.0f} seconds"
+    if tca_seconds >= 999:
+        tca_str = "closest approach time undetermined (negligible relative motion)"
+    elif tca_seconds >= 0:
+        tca_str = f"closest approach in approximately {tca_seconds:.2f} seconds"
     else:
-        tca_str = "undetermined"
+        tca_str = f"closest approach occurred approximately {abs(tca_seconds):.2f} seconds ago"
 
     return (
         f"CONJUNCTION ALERT: {sat1_name} and {sat2_name} "
         f"are predicted to pass within {miss_distance_km:.2f} km of each other "
-        f"(relative velocity: {rel_velocity_km_s:.2f} km/s, "
-        f"time to closest approach: {tca_str}). "
+        f"(relative velocity: {rel_velocity_km_s:.2f} km/s; "
+        f"{tca_str}). "
         f"Recommended action: execute a prograde burn of "
         f"{delta_v_m_s:.4f} m/s to increase miss distance "
         f"above {SAFE_MISS_DISTANCE_KM} km safe threshold."
@@ -105,6 +111,7 @@ def generate_maneuvers():
             c.miss_distance_km,
             c.relative_velocity_km_s,
             c.risk_score,
+            c.tca_seconds,
             s1.name as sat1_name,
             s2.name as sat2_name
         FROM conjunctions c
@@ -132,14 +139,16 @@ def generate_maneuvers():
             row["relative_velocity_km_s"]
         )
 
-        # TCA is not stored in DB yet — using 999 as placeholder
-        # (will be added in a future schema update)
+        # tca_seconds may be NULL only for rows written before this
+        # migration; treat that the same as "undetermined" (999.0 sentinel).
+        tca = row["tca_seconds"] if row["tca_seconds"] is not None else 999.0
+
         rec_text = generate_recommendation_text(
             sat1_name=row["sat1_name"],
             sat2_name=row["sat2_name"],
             miss_distance_km=row["miss_distance_km"],
             rel_velocity_km_s=row["relative_velocity_km_s"],
-            tca_seconds=999.0,
+            tca_seconds=tca,
             delta_v_m_s=delta_v
         )
 

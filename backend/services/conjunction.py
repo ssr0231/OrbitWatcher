@@ -1,7 +1,7 @@
 # backend/services/conjunction.py
 import os
 import sys
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timezone
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -15,7 +15,7 @@ from config import (
 )
 from logger import get_logger
 from backend.database import get_connection
-from backend.services.propagator import get_all_satellite_positions, propagate_satellite
+from backend.services.propagator import get_all_satellite_positions
 
 log = get_logger(__name__)
 
@@ -25,40 +25,71 @@ def compute_relative_velocity(v1: list, v2: list) -> float:
     return float(np.linalg.norm(dv))
 
 
-def compute_tca(sat1: dict, sat2: dict, dt: datetime) -> float:
-    try:
-        future_dt = dt + timedelta(seconds=60)
-        pos1_future, _ = propagate_satellite(sat1["tle_line1"], sat1["tle_line2"], future_dt)
-        pos2_future, _ = propagate_satellite(sat2["tle_line1"], sat2["tle_line2"], future_dt)
+def compute_tca(sat1: dict, sat2: dict) -> float:
+    """
+    Estimates time to closest approach (TCA) in seconds, directly from
+    each satellite's CURRENT position and velocity vectors — no forward
+    propagation needed.
 
-        if pos1_future is None or pos2_future is None:
-            return 999.0
+    Why this replaces the old 60-second-lookahead method:
+    At the relative velocities seen between Starlink satellites
+    (commonly 5-15 km/s), the entire 50 km screening window is crossed
+    in just a few seconds. Jumping 60 seconds into the future to check
+    "closer or farther?" almost always landed long after the encounter
+    was over, so that method reported "undetermined" for nearly every
+    real pair.
 
-        current_dist = np.linalg.norm(
-            np.array([sat1["x"], sat1["y"], sat1["z"]]) -
-            np.array([sat2["x"], sat2["y"], sat2["z"]])
-        )
-        future_dist = np.linalg.norm(
-            np.array(pos1_future) - np.array(pos2_future)
-        )
+    This version instead treats relative motion as a straight line over
+    the short timescale that matters (valid here since the conjunction
+    window is seconds, vs. a ~90-minute orbital period) and solves
+    directly for the time that minimizes separation distance:
 
-        if future_dist >= current_dist:
-            return 999.0
+        time_to_closest_approach = -(p_rel . v_rel) / |v_rel|^2
 
-        closing_rate = (current_dist - future_dist) / 60.0
-        if closing_rate <= 0:
-            return 999.0
+    where p_rel and v_rel are the relative position and velocity
+    vectors between the two satellites right now.
 
-        return float(current_dist / closing_rate)
+    Returns:
+        Positive seconds -> closest approach is still ahead.
+        Negative seconds -> closest approach already happened that
+                             many seconds ago.
+        999.0            -> relative velocity is ~0 (satellites moving
+                             together), or the estimate exceeds one
+                             orbital period and is no longer reliable.
+    """
+    p_rel = np.array([
+        sat1["x"] - sat2["x"],
+        sat1["y"] - sat2["y"],
+        sat1["z"] - sat2["z"]
+    ])
+    v_rel = np.array([
+        sat1["vx"] - sat2["vx"],
+        sat1["vy"] - sat2["vy"],
+        sat1["vz"] - sat2["vz"]
+    ])
 
-    except Exception:
+    v_rel_sq = float(np.dot(v_rel, v_rel))
+    if v_rel_sq < 1e-6:
         return 999.0
+
+    tca = float(-np.dot(p_rel, v_rel) / v_rel_sq)
+
+    # Beyond roughly one LEO orbital period, the straight-line
+    # assumption this estimate relies on is no longer meaningful —
+    # report undetermined rather than a falsely precise-looking number.
+    if abs(tca) > 5400.0:
+        return 999.0
+
+    return tca
 
 
 def compute_risk_score(distance_km: float, rel_velocity_km_s: float, tca_seconds: float) -> float:
     term1 = 1.0 / (distance_km + 1.0)
     term2 = rel_velocity_km_s / MAX_RELATIVE_VELOCITY_KM_S
-    term3 = 1.0 / (tca_seconds + 1.0)
+    # tca_seconds can now be negative (closest approach already passed) —
+    # use magnitude, since "3 seconds from now" and "3 seconds ago" are
+    # equally significant for risk ranking purposes.
+    term3 = 1.0 / (abs(tca_seconds) + 1.0)
     return term1 * term2 * term3
 
 
@@ -74,12 +105,6 @@ def screen_conjunctions(positions: list, dt: datetime):
     tree = KDTree(coords)
     pairs = tree.query_pairs(r=CONJUNCTION_THRESHOLD_KM)
     log.info(f"k-d tree found {len(pairs)} candidate pairs within {CONJUNCTION_THRESHOLD_KM} km.")
-
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, tle_line1, tle_line2 FROM satellites")
-    tle_map = {row["id"]: row for row in cursor.fetchall()}
-    conn.close()
 
     conjunctions = []
 
@@ -99,15 +124,7 @@ def screen_conjunctions(positions: list, dt: datetime):
         vel2 = [sat2["vx"], sat2["vy"], sat2["vz"]]
         rel_vel = compute_relative_velocity(vel1, vel2)
 
-        tle1 = tle_map.get(sat1["id"])
-        tle2 = tle_map.get(sat2["id"])
-
-        if tle1 and tle2:
-            sat1_with_tle = {**sat1, "tle_line1": tle1["tle_line1"], "tle_line2": tle1["tle_line2"]}
-            sat2_with_tle = {**sat2, "tle_line1": tle2["tle_line1"], "tle_line2": tle2["tle_line2"]}
-            tca = compute_tca(sat1_with_tle, sat2_with_tle, dt)
-        else:
-            tca = 999.0
+        tca = compute_tca(sat1, sat2)
 
         risk = compute_risk_score(distance, rel_vel, tca)
 
@@ -138,10 +155,10 @@ def store_conjunctions(conjunctions: list):
     cursor.executemany("""
         INSERT INTO conjunctions
             (sat1_id, sat2_id, miss_distance_km,
-             relative_velocity_km_s, risk_score, timestamp)
+             relative_velocity_km_s, risk_score, tca_seconds, timestamp)
         VALUES
             (:sat1_id, :sat2_id, :miss_distance_km,
-             :relative_velocity_km_s, :risk_score, :timestamp)
+             :relative_velocity_km_s, :risk_score, :tca_seconds, :timestamp)
     """, conjunctions)
 
     conn.commit()
