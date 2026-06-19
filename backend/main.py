@@ -4,7 +4,7 @@ import os
 import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -29,6 +29,24 @@ app.add_middleware(
     allow_methods=["GET"],
     allow_headers=["*"]
 )
+
+
+# Development-mode no-cache middleware.
+# Without this, browsers may keep serving an old cached copy of
+# index.html / *.js / *.css even after you've edited and saved the
+# file on disk, making it look like your change "didn't work" when
+# really it's just not being re-downloaded. This forces every
+# response to be treated as immediately stale. Fine for local
+# development; a real deployment would replace this with normal
+# versioned caching for performance.
+@app.middleware("http")
+async def no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 
 # Register API routes
 app.include_router(satellites.router,   prefix=API_PREFIX)

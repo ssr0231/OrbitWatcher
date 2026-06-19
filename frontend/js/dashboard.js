@@ -184,4 +184,40 @@ async function buildDashboard(conjunctions, analytics) {
       scales: baseScales
     }
   }));
+
+  // ── Chart 5: Satellite altitude distribution ──────────
+  // Colors deliberately match the altitude-based satellite coloring
+  // used on the 3D globe (frontend/js/satellites.js), so this chart
+  // and the globe visually agree with each other.
+  const altDist = analytics.altitude_distribution || [];
+
+  chartInstances.push(new Chart(document.getElementById("chart-altitude"), {
+    type: "bar",
+    data: {
+      labels: altDist.map(a => a.band),
+      datasets: [{
+        data: altDist.map(a => a.count),
+        backgroundColor: [
+          "rgba(80,220,120,0.70)",   // > 560 km — green
+          "rgba(170,220,80,0.68)",   // 530-560 km — yellow-green
+          "rgba(240,210,60,0.66)",   // 500-530 km — yellow
+          "rgba(255,160,60,0.66)",   // 470-500 km — orange-yellow
+          "rgba(255,110,60,0.70)"    // < 470 km — orange
+        ],
+        borderColor: "transparent",
+        borderRadius: 4,
+        borderSkipped: false
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600 },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.y} satellites` } }
+      },
+      scales: baseScales
+    }
+  }));
 }
