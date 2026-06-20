@@ -79,7 +79,7 @@ function _altitudeColor(altKm) {
 
 function updateSatellitePositions() {
   if (!satRecords.length || !satPositions) return;
-  const now = new Date();
+  const now = getSimTime();
   const R   = 6371.0;
 
   for (let i = 0; i < satRecords.length; i++) {

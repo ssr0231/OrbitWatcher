@@ -393,7 +393,7 @@ body {
   letter-spacing: 0.8px;
 }
 
-#btn-rotation {
+.btn-control {
   background: rgba(107,138,255,0.1);
   border: 1px solid rgba(90,110,255,0.25);
   color: #7080b0;
@@ -407,10 +407,25 @@ body {
   letter-spacing: 0.5px;
 }
 
-#btn-rotation:hover {
+.btn-control:hover {
   background: rgba(107,138,255,0.2);
   border-color: rgba(107,138,255,0.5);
   color: #a0b4ff;
+}
+
+#time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Shown on the UTC clock whenever it is NOT displaying the real
+   current time (i.e. simulation has been rewound, fast-forwarded,
+   or paused) — makes it visually unmistakable that the globe is
+   showing simulated rather than live data. */
+#stat-time.sim-active {
+  color: #ffaa3c;
+  font-weight: 600;
 }
 
 #status-msg {

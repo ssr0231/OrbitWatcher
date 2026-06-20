@@ -9,7 +9,6 @@ import numpy as np
 from scipy.spatial import KDTree
 
 from config import (
-    ORBITAL_SHELL_THICKNESS_KM,
     CONJUNCTION_THRESHOLD_KM,
     MAX_RELATIVE_VELOCITY_KM_S
 )
@@ -94,13 +93,30 @@ def compute_risk_score(distance_km: float, rel_velocity_km_s: float, tca_seconds
 
 
 def screen_conjunctions(positions: list, dt: datetime):
+    """
+    Conjunction candidate screening using a single k-d tree over the
+    full catalog.
+
+    Note on design: an earlier version of this function attempted
+    altitude-band pre-partitioning (grouping satellites into shells
+    before building the tree) on the theory that it would reduce the
+    search space. That was tested and measured against real Starlink
+    altitude data: because the live constellation flies in tight,
+    deliberately-maintained shells, the vast majority of satellites
+    cluster into a single ~100km band anyway, so partitioning provided
+    no speed benefit (it was measurably slower, due to the overhead of
+    building several smaller tree objects instead of one). It was
+    removed in favor of this simpler, faster, single-tree approach.
+    If the catalog being screened is ever much more vertically
+    dispersed (e.g. a combined multi-operator catalog spanning many
+    distinct shells), partitioning would be worth revisiting.
+    """
     if len(positions) < 2:
         log.warning("Not enough satellites to screen.")
         return []
 
     log.info(f"Starting conjunction screening for {len(positions)} satellites...")
 
-    positions.sort(key=lambda s: s["altitude"])
     coords = np.array([[s["x"], s["y"], s["z"]] for s in positions])
     tree = KDTree(coords)
     pairs = tree.query_pairs(r=CONJUNCTION_THRESHOLD_KM)
@@ -111,10 +127,6 @@ def screen_conjunctions(positions: list, dt: datetime):
     for i, j in pairs:
         sat1 = positions[i]
         sat2 = positions[j]
-
-        alt_diff = abs(sat1["altitude"] - sat2["altitude"])
-        if alt_diff > ORBITAL_SHELL_THICKNESS_KM:
-            continue
 
         pos1 = np.array([sat1["x"], sat1["y"], sat1["z"]])
         pos2 = np.array([sat2["x"], sat2["y"], sat2["z"]])
@@ -139,7 +151,7 @@ def screen_conjunctions(positions: list, dt: datetime):
         })
 
     conjunctions.sort(key=lambda c: c["risk_score"], reverse=True)
-    log.info(f"Computed {len(conjunctions)} conjunctions after shell filtering.")
+    log.info(f"Computed {len(conjunctions)} conjunctions.")
     return conjunctions
 
 

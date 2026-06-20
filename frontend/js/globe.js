@@ -13,6 +13,63 @@ let autoRotate = true;
 let _primTrail  = null, _primMarker  = null, _primRec  = null;
 let _secTrail   = null, _secMarker   = null, _secRec   = null;
 
+// ── Time simulation state ──────────────────────────────
+// simTimeMs is the single source of truth for "what time is it right
+// now, for the purposes of satellite propagation". When not paused,
+// it advances at the same rate as real time (1x speed), ticked once
+// per animation frame in renderLoop() below. Pausing freezes it;
+// rewind/forward shift it directly; jumping to realtime resets it to
+// the actual current wall-clock time. Every place in the codebase
+// that used to call `new Date()` to propagate a satellite's position
+// now calls getSimTime() instead, so the whole app — globe, trails,
+// the UTC clock — all consistently reflect simulated time together.
+let simTimeMs       = Date.now();
+let simPaused        = false;
+let _lastFrameRealMs = Date.now();
+
+function tickSimTime() {
+  const nowReal = Date.now();
+  const dtReal  = nowReal - _lastFrameRealMs;
+  _lastFrameRealMs = nowReal;
+  if (!simPaused) simTimeMs += dtReal;
+}
+
+function getSimTime() {
+  return new Date(simTimeMs);
+}
+
+function timeRewind(minutes) {
+  simTimeMs -= minutes * 60000;
+  _updateTimeControlsUI();
+}
+
+function timeForward(minutes) {
+  simTimeMs += minutes * 60000;
+  _updateTimeControlsUI();
+}
+
+function timeTogglePause() {
+  simPaused = !simPaused;
+  _updateTimeControlsUI();
+}
+
+function timeRealtime() {
+  simTimeMs = Date.now();
+  simPaused = false;
+  _updateTimeControlsUI();
+}
+
+function _updateTimeControlsUI() {
+  const pauseBtn = document.getElementById("btn-time-pause");
+  if (pauseBtn) pauseBtn.textContent = simPaused ? "▶ Resume" : "⏸ Pause";
+
+  // Visually distinguish "live" from "simulated/offset" time so it's
+  // never ambiguous whether the globe is showing the real present.
+  const isLive = !simPaused && Math.abs(simTimeMs - Date.now()) < 2000;
+  const clockEl = document.getElementById("stat-time");
+  if (clockEl) clockEl.classList.toggle("sim-active", !isLive);
+}
+
 function initGlobe() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(
@@ -152,7 +209,7 @@ function initMouseControls(canvas) {
 
 function _orbitPoints(rec, steps) {
   const pts = [];
-  const now = new Date();
+  const now = getSimTime();
   for (let i = 0; i <= steps; i++) {
     const t = new Date(now.getTime() + (i / steps) * 96 * 60000);
     try {
@@ -172,7 +229,7 @@ function _orbitPoints(rec, steps) {
 
 function _makeMarker(rec, color) {
   try {
-    const pv = satellite.propagate(rec.satrec, new Date());
+    const pv = satellite.propagate(rec.satrec, getSimTime());
     if (!pv || !pv.position) return null;
     const p = pv.position;
     const m = new THREE.Mesh(
@@ -198,7 +255,7 @@ function _drop(obj) {
 function _moveMarker(marker, rec) {
   if (!marker || !rec) return;
   try {
-    const pv = satellite.propagate(rec.satrec, new Date());
+    const pv = satellite.propagate(rec.satrec, getSimTime());
     if (pv && pv.position) {
       const p = pv.position;
       marker.position.set(
@@ -266,6 +323,7 @@ function toggleRotation() {
 
 function renderLoop() {
   requestAnimationFrame(renderLoop);
+  tickSimTime();
   if (autoRotate && !isDragging) earthGroup.rotation.y += 0.0005;
   _moveMarker(_primMarker, _primRec);
   _moveMarker(_secMarker,  _secRec);

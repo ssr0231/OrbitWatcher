@@ -78,7 +78,15 @@
 
   <div id="bottombar">
     <span id="status-msg">Initialising...</span>
-    <button id="btn-rotation" onclick="toggleRotation()" title="Pause / Resume globe rotation">⏸ Rotation</button>
+    <div id="time-controls">
+      <button class="btn-control" onclick="timeRewind(60)"  title="Rewind 1 hour">⏪ 1h</button>
+      <button class="btn-control" onclick="timeRewind(10)"  title="Rewind 10 minutes">⏪ 10m</button>
+      <button class="btn-control" id="btn-time-pause" onclick="timeTogglePause()" title="Pause / resume time">⏸ Pause</button>
+      <button class="btn-control" onclick="timeForward(10)" title="Forward 10 minutes">10m ⏩</button>
+      <button class="btn-control" onclick="timeForward(60)" title="Forward 1 hour">1h ⏩</button>
+      <button class="btn-control" onclick="timeRealtime()"  title="Jump back to the current real time">⏺ Now</button>
+    </div>
+    <button id="btn-rotation" class="btn-control" onclick="toggleRotation()" title="Pause / Resume globe rotation">⏸ Rotation</button>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>

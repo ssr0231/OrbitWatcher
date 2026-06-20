@@ -5,3 +5,4 @@ sgp4
 scipy
 numpy
 apscheduler
+matplotlib

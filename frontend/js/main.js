@@ -5,7 +5,7 @@ function setStatus(msg) {
 }
 
 function updateClock() {
-  const now = new Date();
+  const now = getSimTime();
   document.getElementById("stat-time").textContent =
     "UTC: " + now.toUTCString().slice(17, 25);
 }
