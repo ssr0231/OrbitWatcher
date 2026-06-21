@@ -26,6 +26,7 @@ async function init() {
   await loadSatellites();
   markHighRiskSatellites(conjunctions);
   initSearch(conjunctions);
+  initFilters();
   renderAlerts(conjunctions);
   renderManeuvers(maneuvers);
   buildDashboard(conjunctions, analytics);

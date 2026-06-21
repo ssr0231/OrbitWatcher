@@ -14,6 +14,7 @@
       <button class="nav-btn active" id="btn-globe"     onclick="showView('globe')">Globe</button>
       <button class="nav-btn"        id="btn-dashboard" onclick="showView('dashboard')">Analytics</button>
       <button class="nav-btn"        id="btn-maneuvers" onclick="showView('maneuvers')">Maneuvers</button>
+      <button class="nav-btn"        id="btn-filter-toggle" onclick="toggleFilterPanel()" title="Show / hide satellite filters">⚙ Filters</button>
     </div>
     <div id="stats">
       <span id="stat-sats">Satellites: —</span>
@@ -29,6 +30,36 @@
     <input id="sat-search" type="text" placeholder="Search satellite..."
       oninput="handleSearch(this.value)" autocomplete="off"/>
     <div id="search-results"></div>
+  </div>
+
+  <div id="filter-panel" class="hidden">
+    <div id="filter-panel-title">Satellite Filters</div>
+
+    <div class="filter-section">
+      <div class="filter-section-label">Risk</div>
+      <label class="filter-radio"><input type="radio" name="filter-risk" value="all" checked> All satellites</label>
+      <label class="filter-radio"><input type="radio" name="filter-risk" value="highRiskOnly"> High-risk only</label>
+      <label class="filter-radio"><input type="radio" name="filter-risk" value="hideHighRisk"> Hide high-risk</label>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-section-label">Altitude band</div>
+      <label class="filter-check"><input type="checkbox" class="filter-altitude" value="gt560" checked> &gt; 560 km</label>
+      <label class="filter-check"><input type="checkbox" class="filter-altitude" value="530-560" checked> 530 – 560 km</label>
+      <label class="filter-check"><input type="checkbox" class="filter-altitude" value="500-530" checked> 500 – 530 km</label>
+      <label class="filter-check"><input type="checkbox" class="filter-altitude" value="470-500" checked> 470 – 500 km</label>
+      <label class="filter-check"><input type="checkbox" class="filter-altitude" value="lt470" checked> &lt; 470 km</label>
+    </div>
+
+    <div class="filter-section">
+      <div class="filter-section-label">Orbit type</div>
+      <label class="filter-check"><input type="checkbox" class="filter-orbit" value="LEO" checked> LEO</label>
+      <label class="filter-check"><input type="checkbox" class="filter-orbit" value="MEO" checked> MEO</label>
+      <label class="filter-check"><input type="checkbox" class="filter-orbit" value="GEO" checked> GEO</label>
+    </div>
+
+    <div id="filter-count">— / — shown</div>
+    <button id="btn-filter-reset" class="btn-control" onclick="resetFilters()">Reset Filters</button>
   </div>
 
   <div id="side-panel">
@@ -99,6 +130,7 @@
   <script src="/static/js/inspector.js"></script>
   <script src="/static/js/globe.js"></script>
   <script src="/static/js/satellites.js"></script>
+  <script src="/static/js/filters.js"></script>
   <script src="/static/js/conjunctions.js"></script>
   <script src="/static/js/alerts.js"></script>
   <script src="/static/js/dashboard.js"></script>

@@ -134,6 +134,68 @@ body {
 .search-result-item:hover { background: rgba(107,138,255,0.12); color: #c0d0ff; }
 .search-result-item:last-child { border-bottom: none; }
 
+/* Positioned in its own horizontal column, clear of #search-bar
+   (16px to 276px), so the search-results dropdown — which can grow
+   up to 260px tall when populated — can never overlap this panel
+   regardless of vertical extent. */
+#filter-panel {
+  position: absolute;
+  top: 62px;
+  left: 290px;
+  width: 260px;
+  max-height: calc(100vh - 100px);
+  background: rgba(6,6,26,0.92);
+  border: 1px solid rgba(90,110,255,0.2);
+  border-radius: 10px;
+  z-index: 10;
+  overflow-y: auto;
+  backdrop-filter: blur(12px);
+  padding: 14px 16px;
+}
+
+#filter-panel-title {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: #6b8aff;
+  margin-bottom: 12px;
+}
+
+.filter-section { margin-bottom: 14px; }
+
+.filter-section-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #404a70;
+  margin-bottom: 6px;
+}
+
+.filter-radio, .filter-check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: #b0c0e8;
+  padding: 4px 0;
+  cursor: pointer;
+}
+
+.filter-radio input, .filter-check input {
+  accent-color: #6b8aff;
+  cursor: pointer;
+}
+
+#filter-count {
+  font-size: 10px;
+  color: #5a6a90;
+  margin: 10px 0;
+  text-align: center;
+}
+
+#btn-filter-reset { width: 100%; text-align: center; }
+
 #side-panel {
   position: absolute;
   top: 62px;

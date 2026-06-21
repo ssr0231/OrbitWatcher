@@ -57,30 +57,26 @@ function buildSatelliteGeometry() {
   earthGroup.add(satellitePoints);
 }
 
-// Returns RGB color based on altitude — matches reference image palette
+// Returns RGB color based on altitude band — bands are defined once
+// in filters.js (altitudeBandKey) and reused here, so the globe's
+// colors and the filter panel's bands can never disagree.
 function _altitudeColor(altKm) {
-  if (altKm > 560) {
-    // High shell — green (like new gen-2 Starlinks)
-    return [0.1, 0.9, 0.2];
-  } else if (altKm > 530) {
-    // Upper-mid shell — yellow-green
-    return [0.6, 0.9, 0.1];
-  } else if (altKm > 500) {
-    // Mid shell — yellow
-    return [1.0, 0.85, 0.0];
-  } else if (altKm > 470) {
-    // Lower-mid shell — orange-yellow
-    return [1.0, 0.65, 0.05];
-  } else {
-    // Low shell / raising orbit — orange
-    return [1.0, 0.4, 0.05];
+  switch (altitudeBandKey(altKm)) {
+    case "gt560":    return [0.1, 0.9, 0.2];   // green
+    case "530-560":  return [0.6, 0.9, 0.1];   // yellow-green
+    case "500-530":  return [1.0, 0.85, 0.0];  // yellow
+    case "470-500":  return [1.0, 0.65, 0.05]; // orange-yellow
+    default:         return [1.0, 0.4, 0.05];  // orange (< 470)
   }
 }
+
+let _lastVisibleCount = -1;
 
 function updateSatellitePositions() {
   if (!satRecords.length || !satPositions) return;
   const now = getSimTime();
   const R   = 6371.0;
+  let visibleCount = 0;
 
   for (let i = 0; i < satRecords.length; i++) {
     if (flashingIndices.has(i)) continue;
@@ -90,18 +86,31 @@ function updateSatellitePositions() {
       const p = pv.position;
       const s = SAT_SCALE;
 
+      const alt = Math.sqrt(p.x**2 + p.y**2 + p.z**2) - R;
+      const isHighRisk = conjunctionSet.has(satRecords[i].id);
+
+      if (!passesFilters(alt, isHighRisk)) {
+        // Push filtered-out satellites beyond the camera's far
+        // clipping plane (1000 units, see globe.js) so they simply
+        // don't render — no geometry resize needed, fully reversible
+        // every frame as filters change.
+        satPositions[i*3+0] = 5000;
+        satPositions[i*3+1] = 5000;
+        satPositions[i*3+2] = 5000;
+        continue;
+      }
+
+      visibleCount++;
       satPositions[i*3+0] =  p.x * s;
       satPositions[i*3+1] =  p.z * s;
       satPositions[i*3+2] = -p.y * s;
 
-      if (conjunctionSet.has(satRecords[i].id)) {
+      if (isHighRisk) {
         // High risk — bright red, overrides altitude color
         satColors[i*3+0] = 1.0;
         satColors[i*3+1] = 0.1;
         satColors[i*3+2] = 0.1;
       } else {
-        // Color by altitude
-        const alt = Math.sqrt(p.x**2 + p.y**2 + p.z**2) - R;
         const [r, g, b] = _altitudeColor(alt);
         satColors[i*3+0] = r;
         satColors[i*3+1] = g;
@@ -112,6 +121,11 @@ function updateSatellitePositions() {
 
   satellitePoints.geometry.attributes.position.needsUpdate = true;
   satellitePoints.geometry.attributes.color.needsUpdate    = true;
+
+  if (visibleCount !== _lastVisibleCount) {
+    _lastVisibleCount = visibleCount;
+    updateFilterCount(visibleCount, satRecords.length);
+  }
 }
 
 function markHighRiskSatellites(conjunctions) {
