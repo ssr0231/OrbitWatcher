@@ -16,10 +16,11 @@ async function init() {
 
   setStatus("Loading data from server...");
 
-  const [conjunctions, analytics, maneuvers] = await Promise.all([
+  const [conjunctions, analytics, maneuvers, forecastJson] = await Promise.all([
     loadConjunctions(),
     fetchAnalytics(),
-    fetchManeuvers(100)
+    fetchManeuvers(100),
+    fetchForecast()
   ]);
 
   updateConjunctionStats(conjunctions);
@@ -30,6 +31,7 @@ async function init() {
   renderAlerts(conjunctions);
   renderManeuvers(maneuvers);
   buildDashboard(conjunctions, analytics);
+  renderForecast(forecastJson);
 
   function loop() {
     updateSatellitePositions();

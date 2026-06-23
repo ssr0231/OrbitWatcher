@@ -13,7 +13,7 @@ from config import API_PREFIX
 from logger import get_logger
 from backend.database import init_db
 from backend.scheduler import start_scheduler, run_pipeline
-from backend.routes import satellites, conjunctions, analytics, maneuvers
+from backend.routes import satellites, conjunctions, analytics, maneuvers, forecast
 
 log = get_logger(__name__)
 
@@ -31,30 +31,21 @@ app.add_middleware(
 )
 
 
-# Development-mode no-cache middleware.
-# Without this, browsers may keep serving an old cached copy of
-# index.html / *.js / *.css even after you've edited and saved the
-# file on disk, making it look like your change "didn't work" when
-# really it's just not being re-downloaded. This forces every
-# response to be treated as immediately stale. Fine for local
-# development; a real deployment would replace this with normal
-# versioned caching for performance.
 @app.middleware("http")
 async def no_cache_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    response.headers["Pragma"]        = "no-cache"
+    response.headers["Expires"]       = "0"
     return response
 
 
-# Register API routes
 app.include_router(satellites.router,   prefix=API_PREFIX)
 app.include_router(conjunctions.router, prefix=API_PREFIX)
 app.include_router(analytics.router,    prefix=API_PREFIX)
 app.include_router(maneuvers.router,    prefix=API_PREFIX)
+app.include_router(forecast.router,     prefix=API_PREFIX)
 
-# Serve frontend static files
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 

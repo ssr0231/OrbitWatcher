@@ -36,3 +36,11 @@ async function fetchManeuvers(limit = 100) {
     return json.data || [];
   } catch (e) { console.error("fetchManeuvers failed:", e); return []; }
 }
+
+async function fetchForecast() {
+  try {
+    const res = await fetch(`${API_BASE}/forecast`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (e) { console.error("fetchForecast failed:", e); return { data: [], count: 0 }; }
+}

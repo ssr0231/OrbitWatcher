@@ -519,3 +519,120 @@ body {
   background: rgba(107,138,255,0.2);
   border-radius: 2px;
 }
+
+
+/* ── Forecast view ───────────────────────────────────── */
+
+#forecast-header-row {
+  display: flex;
+  align-items: baseline;
+  gap: 18px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.view-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: #6b8aff;
+}
+
+#forecast-meta {
+  font-size: 10px;
+  color: #404a70;
+  letter-spacing: 0.5px;
+}
+
+.forecast-count-badge {
+  font-size: 10px;
+  color: #6b8aff;
+  background: rgba(107,138,255,0.12);
+  border: 1px solid rgba(107,138,255,0.2);
+  border-radius: 10px;
+  padding: 2px 10px;
+}
+
+#forecast-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 14px;
+}
+
+.forecast-item {
+  background: rgba(12,12,36,0.98);
+  border-radius: 10px;
+  padding: 16px 18px;
+  border-left: 3px solid #3a4a70;
+  transition: border-color 0.3s;
+}
+
+.forecast-critical { border-left-color: #ff4040; background: rgba(255,40,40,0.06); }
+.forecast-high     { border-left-color: #ff8c00; background: rgba(255,140,0,0.05); }
+.forecast-medium   { border-left-color: #f0c000; background: rgba(240,192,0,0.04); }
+.forecast-low      { border-left-color: #3a5a90; }
+
+.forecast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.forecast-names {
+  font-size: 11px;
+  font-weight: 600;
+  color: #b8c8ff;
+}
+
+.forecast-urgency-badge {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.forecast-critical-badge { background: rgba(255,40,40,0.2); color: #ff6060; }
+.forecast-high-badge     { background: rgba(255,140,0,0.18); color: #ffaa44; }
+.forecast-medium-badge   { background: rgba(240,192,0,0.15); color: #f0d060; }
+.forecast-low-badge      { background: rgba(107,138,255,0.12); color: #8090c0; }
+
+.forecast-countdown {
+  font-family: 'Space Mono', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #dde3ff;
+  letter-spacing: 2px;
+  margin: 6px 0 4px;
+}
+
+.forecast-critical .forecast-countdown { color: #ff6060; }
+.forecast-high     .forecast-countdown { color: #ffaa44; }
+.forecast-medium   .forecast-countdown { color: #f0d060; }
+
+.forecast-approach-time {
+  font-size: 10px;
+  color: #404a70;
+  margin-bottom: 10px;
+}
+
+.forecast-details {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 10px;
+  color: #5a6a90;
+}
+
+.forecast-details strong { color: #8090b8; }
+
+.forecast-empty {
+  color: #404a70;
+  font-size: 12px;
+  text-align: center;
+  padding: 60px 0;
+  line-height: 2;
+}

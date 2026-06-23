@@ -13,21 +13,13 @@ log = get_logger(__name__)
 
 
 def get_connection():
-    """
-    Opens a new SQLite connection for each request.
-    Database is stored outside OneDrive to avoid 2-second sync overhead.
-    WAL mode and memory settings are applied per connection.
-    """
     os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
-
-    # Performance settings
     conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA cache_size=-32000")   # 32 MB page cache
+    conn.execute("PRAGMA cache_size=-32000")
     conn.execute("PRAGMA temp_store=MEMORY")
     conn.execute("PRAGMA synchronous=NORMAL")
-
     return conn
 
 
@@ -65,15 +57,11 @@ def init_db():
         )
     """)
 
-    # Migration: if upgrading from a database created before TCA was
-    # tracked, the table above already existed without this column and
-    # CREATE TABLE IF NOT EXISTS will not have added it. Add it now.
-    # Safe to run every startup — silently no-ops once the column exists.
     try:
         cursor.execute("ALTER TABLE conjunctions ADD COLUMN tca_seconds REAL")
         log.info("Migrated existing database: added tca_seconds column.")
     except sqlite3.OperationalError:
-        pass  # column already exists
+        pass
 
     # Table 3: maneuvers
     cursor.execute("""
@@ -86,7 +74,28 @@ def init_db():
         )
     """)
 
-    # Indexes for fast API queries
+    # Table 4: forecast
+    # Stores the predicted closest-approach event for each unique
+    # satellite pair over the next 24 hours. Regenerated every
+    # pipeline cycle. Satellite IDs are valid for the current cycle
+    # only — they reset when TLEs are re-fetched, which is why this
+    # table is always fully replaced alongside the satellites table.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS forecast (
+            id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+            sat1_id                INTEGER NOT NULL,
+            sat2_id                INTEGER NOT NULL,
+            approach_time          TEXT NOT NULL,
+            predicted_miss_km      REAL NOT NULL,
+            relative_velocity_km_s REAL NOT NULL,
+            risk_score             REAL NOT NULL,
+            created_at             TEXT NOT NULL,
+            FOREIGN KEY (sat1_id) REFERENCES satellites(id),
+            FOREIGN KEY (sat2_id) REFERENCES satellites(id)
+        )
+    """)
+
+    # Indexes
     cursor.execute("""
         CREATE INDEX IF NOT EXISTS idx_conjunctions_risk
         ON conjunctions(risk_score DESC)
@@ -107,7 +116,11 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_maneuvers_conjunction
         ON maneuvers(conjunction_id)
     """)
+    cursor.execute("""
+        CREATE INDEX IF NOT EXISTS idx_forecast_approach
+        ON forecast(approach_time ASC)
+    """)
 
     conn.commit()
     conn.close()
-    log.info("Database ready — 3 tables, 5 indexes confirmed.")
+    log.info("Database ready — 4 tables, 6 indexes confirmed.")

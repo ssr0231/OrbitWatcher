@@ -15,6 +15,7 @@
       <button class="nav-btn"        id="btn-dashboard" onclick="showView('dashboard')">Analytics</button>
       <button class="nav-btn"        id="btn-maneuvers" onclick="showView('maneuvers')">Maneuvers</button>
       <button class="nav-btn"        id="btn-filter-toggle" onclick="toggleFilterPanel()" title="Show / hide satellite filters">⚙ Filters</button>
+      <button class="nav-btn"        id="btn-forecast" onclick="showView('forecast')">Forecast</button>
     </div>
     <div id="stats">
       <span id="stat-sats">Satellites: —</span>
@@ -92,6 +93,15 @@
     </div>
   </div>
 
+  <div id="forecast-view" class="view hidden">
+    <div id="forecast-header-row">
+      <div class="view-title">24-Hour Conjunction Forecast</div>
+      <div id="forecast-meta"></div>
+      <span id="forecast-count" class="forecast-count-badge"></span>
+    </div>
+    <div id="forecast-list"></div>
+  </div>
+
   <div id="maneuvers-view" class="view hidden">
     <div id="maneuver-header-row">
       <div class="view-header" style="margin:0">Maneuver Recommendations</div>
@@ -131,6 +141,7 @@
   <script src="/static/js/globe.js"></script>
   <script src="/static/js/satellites.js"></script>
   <script src="/static/js/filters.js"></script>
+  <script src="/static/js/forecast.js"></script>
   <script src="/static/js/conjunctions.js"></script>
   <script src="/static/js/alerts.js"></script>
   <script src="/static/js/dashboard.js"></script>
