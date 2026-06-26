@@ -1,17 +1,47 @@
-# Python cache
+# -----------------------------
+# Python Cache
+# -----------------------------
 __pycache__/
-*.pyc
+*.py[cod]
 *.pyo
 
-# Database — contains real data, not code
-data/orbitwatch.db
-
-# Logs
-logs/
-
-# Virtual environment (if you create one later)
+# -----------------------------
+# Virtual Environment
+# -----------------------------
+.venv/
 venv/
+env/
+
+# -----------------------------
+# Environment Variables
+# -----------------------------
 .env
 
-# VS Code settings
+# -----------------------------
+# Database
+# -----------------------------
+data/orbitwatch.db
+*.db
+*.sqlite
+
+# -----------------------------
+# Logs
+# -----------------------------
+logs/
+*.log
+
+# -----------------------------
+# VS Code
+# -----------------------------
 .vscode/
+
+# -----------------------------
+# IDE
+# -----------------------------
+.idea/
+
+# -----------------------------
+# OS Files
+# -----------------------------
+.DS_Store
+Thumbs.db
