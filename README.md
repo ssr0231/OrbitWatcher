@@ -1,253 +1,271 @@
 # OrbitWatch
 
-**Real-time Starlink satellite collision risk intelligence platform.**
+Real-time Starlink satellite collision detection, risk assessment, and maneuver recommendation platform.
 
-Live tracking of 10,000+ Starlink satellites with automated conjunction
-detection, risk scoring, and maneuver recommendations — built on real
-orbital data from CelesTrak.
+## Overview
 
----
+OrbitWatch is a real-time Starlink collision-risk intelligence platform that combines orbital mechanics, spatial search, and full-stack engineering into a single end-to-end system.
 
-## Live Demo
+It is designed to:
 
-Run locally — see setup below.
+- Ingest live Starlink TLE data
+- Propagate satellite orbits using SGP4
+- Detect close approaches using KDTree spatial screening
+- Compute collision risk metrics
+- Generate maneuver recommendations
+- Provide real-time visualization and analytics
 
----
+The project emphasizes measurable performance, reproducible benchmarking, and practical engineering trade-offs for large satellite catalogs.
 
-## Features
+## Why OrbitWatch?
 
-- **3D Globe** — 10,000+ real Starlink satellites rendered at 60 FPS
-  using Three.js + satellite.js SGP4 propagation in the browser
-- **Collision Detection** — k-d tree spatial screening identifies
-  close-approach pairs in milliseconds
-- **Risk Scoring** — physically grounded formula using miss distance,
-  relative velocity, and time to closest approach
-- **Maneuver Recommendations** — delta-V burn suggestions for each
-  high-risk conjunction pair
-- **Analytics Dashboard** — real-time charts for risk distribution,
-  top satellites, miss distance, and velocity profiles
-- **Search** — find any satellite by name, zoom to its position
-- **Inspector** — click any alert or satellite to view live orbital data
-- **Export** — download conjunction reports as CSV or JSON
+Low Earth Orbit is becoming increasingly congested as large satellite constellations continue to expand. Conjunction analysis at this scale requires algorithms that remain fast as catalog size grows, while still preserving physically meaningful risk ranking.
 
----
+OrbitWatch was built to address that need by combining live TLE ingestion, SGP4 orbital propagation, and KDTree-based spatial screening in a reproducible pipeline. Using real CelesTrak data keeps the analysis grounded in operational satellite behavior rather than synthetic assumptions.
 
-## Architecture
+## Key Features
 
-## Architecture
+- Live tracking and ingestion of 10,000+ Starlink satellites from CelesTrak
+- Batch SGP4 propagation for ECI position and velocity state vectors
+- KDTree-based conjunction screening over propagated satellite positions
+- Risk scoring model based on miss distance, relative velocity, and time-to-closest-approach
+- Maneuver recommendation engine with delta-V estimates for high-risk events
+- Forecasting pipeline for upcoming close-approach windows
+- Analytics dashboard for risk distribution and operational summaries
+- Interactive 3D globe visualization built with Three.js
+- Export tools for conjunction and maneuver data in CSV and JSON
 
-```text
-CelesTrak GP Endpoint (internet)
-        │
-        │ HTTP GET (every 6 hours via APScheduler)
-        │ retry logic: 3 attempts, 10s delay, fallback to cached data
-        ▼
-tle_fetcher.py
-        │ parse + validate + upsert to database
-        │ 159.6 ms
-        ▼
-SQLite: satellites table
-        │
-        ▼
-propagator.py
-        │ SGP4 batch propagation → ECI positions + velocities (km, km/s)
-        │ 208.2 ms  ← pipeline bottleneck (44% of total)
-        ▼
-conjunction.py
-        │ Stage 1: Altitude shell filter (100 km bands) — eliminates ~98% of pairs
-        │ Stage 2: scipy KDTree.query_pairs(r=50 km) on surviving candidates
-        │ Stage 3: Risk score + TCA estimation for each detected pair
-        │ 87.7 ms
-        ▼
-SQLite: conjunctions table
-        │
-        ▼
-optimizer.py
-        │ Delta-V computation for high-risk pairs
-        │ Recommendation text generation
-        │ 17.1 ms
-        ▼
-SQLite: maneuvers table
-        │
-        ▼ (read-only, no computation per request)
-FastAPI REST API — 4 endpoints
-        │
-        ├── GET /api/v1/tles          → all 10,303 TLE records
-        ├── GET /api/v1/conjunctions  → top-N pairs sorted by risk DESC
-        ├── GET /api/v1/analytics     → summary statistics
-        └── GET /api/v1/maneuvers     → delta-V recommendations
-        │
-        ▼
-Browser (single HTML page, no build toolchain)
-        │
-        ├── satellite.js 4.1.3   → SGP4 propagation in browser @ 60 FPS
-        ├── Three.js r128        → 3D globe, BufferGeometry (1 GPU draw call)
-        └── Chart.js 4.4.0       → Analytics charts
+## Screenshots
+
+Representative interface captures can be added at:
+
+- docs/screenshots/globe.png
+- docs/screenshots/dashboard.png
+- docs/screenshots/maneuvers.png
+
+## System Architecture
+
+```mermaid
+flowchart TD
+    A[CelesTrak] --> B[TLE Fetcher]
+    B --> C[SQLite]
+    C --> D[Propagation Engine]
+    D --> E[Conjunction Engine]
+    E --> F[Maneuver Engine]
+    E --> G[Forecast Engine]
+    F --> C
+    G --> C
+    C --> H[FastAPI API Layer]
+    H --> I[Frontend Visualization]
 ```
+
+Architecture flow and responsibilities:
+
+- CelesTrak: Source of live Starlink TLEs.
+- TLE Fetcher: Pulls, validates, and upserts orbital elements into SQLite on a scheduled cycle.
+- SQLite: Stores canonical satellite records plus derived conjunction, maneuver, and forecast results.
+- Propagation Engine: Runs SGP4 batch propagation to compute ECI positions and velocities.
+- Conjunction Engine: Builds a single KDTree over propagated positions, screens close approaches, and computes risk and TCA.
+- Maneuver Engine: Generates delta-V recommendations for high-risk conjunction pairs.
+- Forecast Engine: Produces near-term predicted encounter events and stores sortable timeline records.
+- FastAPI API Layer: Serves precomputed data through low-latency REST endpoints.
+- Frontend Visualization: Displays live globe, analytics, alerts, and operator-facing inspection tools.
+
+## Performance Highlights
+
+| Metric | Result |
+|---|---|
+| Catalog size processed | 10,000+ satellites |
+| End-to-end pipeline time (excluding network) | 472.6 ms |
+| SGP4 propagation stage | 208.2 ms |
+| Conjunction screening stage | 87.7 ms |
+| Maneuver generation stage | 17.1 ms |
+| KDTree speedup vs brute force | 11,275.8x |
+
+These measurements are derived from repeatable benchmark artifacts in the repository.
+
+## Research Contributions
+
+- KDTree vs brute-force comparison: Quantifies asymptotic and practical speedup on large Starlink-scale catalogs.
+- Completeness validation: Confirms that optimized screening preserves relevant conjunction candidates.
+- Pipeline benchmarking: Breaks down total runtime by stage to identify compute bottlenecks.
+- Reproducible results: Ships benchmark JSON outputs and analysis scripts for independent verification.
+
+## Technology Stack
+
+| Layer | Technologies |
+|---|---|
+| Backend API | Python, FastAPI, Uvicorn |
+| Orbital Mechanics | python-sgp4, NumPy, SciPy |
+| Spatial Screening | SciPy KDTree |
+| Data Store | SQLite (WAL mode) |
+| Scheduling | APScheduler |
+| Frontend 3D | Three.js |
+| Browser Propagation | satellite.js |
+| Analytics UI | Chart.js |
+| Data Source | CelesTrak |
 
 ## Database Schema
 
-SQLite location: C:/OrbitWatchData/orbitwatch.db
-Log file:        C:/OrbitWatchData/orbitwatch.log
-Mode:            WAL (Write-Ahead Logging — allows concurrent reads during writes)
+OrbitWatch uses SQLite with four core tables:
 
-TABLE: satellites
-  id            INTEGER PRIMARY KEY AUTOINCREMENT
-  name          TEXT            (e.g. "STARLINK-1234")
-  tle_line1     TEXT
-  tle_line2     TEXT
-  last_updated  TEXT            (ISO 8601 UTC)
+- satellites: Canonical TLE records for each tracked Starlink object.
+- conjunctions: Detected close-approach events with miss distance, relative velocity, risk score, and TCA.
+- maneuvers: Recommended corrective actions with delta-V estimates linked to conjunction events.
+- forecast: Predicted upcoming approach events, sorted by future encounter time.
 
-TABLE: conjunctions
-  id                     INTEGER PRIMARY KEY AUTOINCREMENT
-  sat1_id                INTEGER FK → satellites.id
-  sat2_id                INTEGER FK → satellites.id
-  miss_distance_km       REAL
-  relative_velocity_km_s REAL
-  risk_score             REAL
-  timestamp              TEXT
+The schema is indexed for risk-based ranking, pair lookup, and forecast timeline queries.
 
-TABLE: maneuvers
-  id                  INTEGER PRIMARY KEY AUTOINCREMENT
-  conjunction_id      INTEGER FK → conjunctions.id
-  delta_v_m_s         REAL
-  recommendation_text TEXT
+## Risk Scoring Model
+
 ```text
-INDEXES (5 total):
-  idx_conjunctions_risk      ON conjunctions(risk_score DESC)
-  idx_conjunctions_sat1      ON conjunctions(sat1_id)
-  idx_conjunctions_sat2      ON conjunctions(sat2_id)
-  idx_satellites_name        ON satellites(name)
-  idx_maneuvers_conjunction  ON maneuvers(conjunction_id)
+risk_score = (1 / (distance_km + 1))
+           * (relative_velocity_km_s / 15)
+           * (1 / (time_to_closest_approach_s + 1))
 ```
----
 
-## Tech Stack
+Where:
 
-| Layer      | Technology                        |
-|------------|-----------------------------------|
-| Backend    | Python 3.12, FastAPI, Uvicorn     |
-| Orbital math | python-sgp4, numpy, scipy       |
-| Database   | SQLite (WAL mode)                 |
-| Scheduler  | APScheduler (6-hour refresh)      |
-| 3D Globe   | Three.js r128                     |
-| Propagation | satellite.js (browser SGP4)      |
-| Charts     | Chart.js 4                        |
-| Fonts      | Inter, Space Mono (Google Fonts)  |
-| Data source | CelesTrak (free, no account)     |
+- distance_km: Predicted miss distance between two satellites. Smaller distance increases risk.
+- relative_velocity_km_s: Closing speed at encounter. Higher velocity increases hazard severity.
+- time_to_closest_approach_s: Time remaining until TCA. Lower time increases operational urgency.
 
----
+This model is intentionally interpretable and operationally useful for ranking conjunction priority.
 
-## Setup
+## API Endpoints
 
-### Requirements
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | /api/v1/tles | Return live Starlink TLE records |
+| GET | /api/v1/conjunctions | Return risk-sorted conjunction events |
+| GET | /api/v1/analytics | Return aggregate risk and catalog statistics |
+| GET | /api/v1/maneuvers | Return maneuver recommendations |
+| GET | /api/v1/maneuvers/{conjunction_id} | Return detailed maneuver for one conjunction |
+| GET | /api/v1/forecast | Return upcoming predicted conjunction timeline |
+| GET | /health | Service health status |
+
+Interactive API documentation is available at /docs.
+
+## Project Structure
+
+```text
+OrbitWatcher/
+├── config.py                         # Global constants: thresholds, paths, API prefix, source URLs
+├── logger.py                         # Centralized logging configuration
+├── requirements.txt                  # Python dependencies
+├── README.md
+├── LICENSE
+│
+├── backend/
+│   ├── main.py                       # FastAPI entrypoint, middleware, router registration
+│   ├── database.py                   # SQLite initialization, WAL settings, schema and indexes
+│   ├── scheduler.py                  # Pipeline orchestration and periodic execution
+│   ├── benchmark.py                  # Runtime benchmarking routines
+│   ├── generate_figures.py           # Benchmark visualization generation
+│   │
+│   ├── routes/
+│   │   ├── satellites.py             # /api/v1/tles
+│   │   ├── conjunctions.py           # /api/v1/conjunctions
+│   │   ├── analytics.py              # /api/v1/analytics
+│   │   ├── maneuvers.py              # /api/v1/maneuvers, /api/v1/maneuvers/{conjunction_id}
+│   │   └── forecast.py               # /api/v1/forecast
+│   │
+│   └── services/
+│       ├── tle_fetcher.py            # CelesTrak ingestion, validation, persistence
+│       ├── propagator.py             # SGP4 propagation and state-vector generation
+│       ├── conjunction.py            # KDTree-based conjunction screening and risk scoring
+│       ├── conjunction_bruteforce.py # Baseline O(n^2) reference for validation/benchmarking
+│       ├── optimizer.py              # Maneuver delta-V estimation and recommendation text
+│       └── forecaster.py             # Forecast generation for upcoming approach events
+│
+├── frontend/
+│   ├── index.html                    # Single-page interface shell
+│   ├── VISUALIZATION_MODES.md        # UI mode documentation
+│   ├── css/
+│   │   └── style.css                 # Presentation layer styles
+│   └── js/
+│       ├── main.js                   # App bootstrap and lifecycle wiring
+│       ├── api.js                    # Backend request layer
+│       ├── globe.js                  # 3D scene, camera, rendering controls
+│       ├── satellites.js             # Satellite rendering and visual state updates
+│       ├── conjunctions.js           # Conjunction data loading and presentation
+│       ├── maneuver.js               # Maneuver panel data and interaction logic
+│       ├── forecast.js               # Forecast visualization and timeline handling
+│       ├── dashboard.js              # Analytics charts and KPI cards
+│       ├── alerts.js                 # Alert feed behavior
+│       ├── inspector.js              # Object inspection panel
+│       ├── filters.js                # Data filtering controls
+│       ├── search.js                 # Search and object selection workflows
+│       ├── export.js                 # CSV/JSON export utilities
+│       └── router.js                 # View routing between dashboard panels
+│
+├── data/                             # Data artifacts and local datasets
+├── logs/                             # Runtime logs
+├── benchmark_scalability.json        # Scalability benchmark output
+├── benchmark_completeness.json       # Completeness benchmark output
+└── pipeline_timing.json              # Stage-wise pipeline timing output
+```
+
+## Installation
+
+Prerequisites:
+
 - Python 3.10+
 - Git
 
-### Installation
+Setup:
 
 ```bash
 git clone https://github.com/ssr0231/OrbitWatcher.git
 cd OrbitWatcher
 pip install -r requirements.txt
-python -m uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Open `http://localhost:8000` in your browser.
+## Running the Project
 
-On first startup the system automatically:
-1. Fetches live Starlink TLEs from CelesTrak
-2. Propagates all satellites using SGP4
-3. Runs conjunction screening
-4. Computes risk scores and maneuver recommendations
+After startup, open http://localhost:8000.
 
-Data refreshes every 6 hours automatically.
+On boot, OrbitWatch automatically executes:
 
----
+1. TLE ingestion from CelesTrak
+2. SGP4 propagation for all active objects
+3. KDTree conjunction screening and risk scoring
+4. Maneuver and forecast generation
 
-## API Endpoints
+The scheduler then refreshes the pipeline periodically for near-real-time updates.
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/tles` | All Starlink TLE data |
-| GET | `/api/v1/conjunctions` | Risk-sorted conjunction pairs |
-| GET | `/api/v1/analytics` | Summary statistics |
-| GET | `/api/v1/maneuvers` | Maneuver recommendations |
-| GET | `/api/v1/maneuvers/{id}` | Single conjunction maneuver |
+## Future Enhancements
 
-Interactive API docs at `/docs`.
+- Multi-operator satellite catalogs beyond Starlink
+- Improved collision probability and uncertainty propagation models
+- Historical conjunction analytics for trend and anomaly analysis
+- Containerized deployment profile for reproducible environments
 
----
+## Project Highlights
 
-## Risk Formula
-risk_score = (1 / (distance_km + 1))
-× (relative_velocity_km_s / 15)
-× (1 / (time_to_closest_approach_s + 1))
+- Processes 10,000+ satellites in a benchmarked end-to-end pipeline
+- KDTree acceleration for scalable conjunction candidate screening
+- SGP4 propagation for physically grounded orbital state estimation
+- Risk assessment engine combining distance, relative velocity, and TCA
+- Maneuver recommendation workflow for high-priority conjunctions
+- Interactive 3D visualization for catalog and event exploration
+- Reproducible benchmark artifacts for independent performance validation
 
-Each term is physically grounded:
-- **Distance** — closer approach = higher risk
-- **Velocity** — faster closing speed = more dangerous
-- **TCA** — sooner encounter = higher urgency
+## License
 
----
+This project is licensed under the MIT License. See the LICENSE file for details.
 
-## Project Structure
-```text
-OrbitWatcher/
-├── config.py                    ← ALL constants (thresholds, paths, URLs)
-├── logger.py                    ← Centralized logging (writes to C:/OrbitWatchData/)
-├── requirements.txt
-│
-├── backend/
-│   ├── main.py                  ← FastAPI app entry, CORS, static files, scheduler start
-│   ├── database.py              ← SQLite init, WAL mode, 3 tables, 5 indexes
-│   ├── scheduler.py             ← APScheduler 6-hour pipeline + run_pipeline_timed()
-│   │
-│   ├── services/
-│   │   ├── tle_fetcher.py       ← CelesTrak fetch, parse, validate, store
-│   │   ├── propagator.py        ← SGP4 batch propagation, altitude filtering
-│   │   ├── conjunction.py       ← Altitude shell + k-d tree screening, risk scoring
-│   │   ├── conjunction_bruteforce.py  ← O(n²) oracle (RESEARCH ONLY, never in prod)
-│   │   └── optimizer.py         ← Delta-V maneuver computation
-│   │
-│   └── routes/
-│       ├── satellites.py        ← GET /api/v1/tles
-│       ├── conjunctions.py      ← GET /api/v1/conjunctions
-│       ├── analytics.py         ← GET /api/v1/analytics
-│       └── maneuvers.py         ← GET /api/v1/maneuvers
-│
-├── frontend/
-│   ├── index.html               ← Single page app, script load order is critical
-│   ├── css/style.css
-│   └── js/
-│       ├── api.js               ← window.location.origin base URL, 4 fetch functions
-│       ├── globe.js             ← Three.js scene, dark Earth, trails, rotation toggle
-│       ├── satellites.js        ← BufferGeometry, altitude colors, markHighRisk
-│       ├── inspector.js         ← Satellite detail panel, orbital params, flashSatellite→trail
-│       ├── alerts.js            ← Collision alert panel, alert→trail integration
-│       ├── conjunctions.js      ← Load conjunctions, updateConjunctionStats
-│       ├── dashboard.js         ← Chart.js 4 charts
-│       ├── maneuver.js          ← Maneuver cards panel
-│       ├── search.js            ← Autocomplete search, RISK badge
-│       ├── router.js            ← View switching (Globe/Analytics/Maneuvers)
-│       ├── export.js            ← CSV and JSON download
-│       └── main.js              ← Init sequence, clock, animation loop
-│
-├── benchmark.py                 ← Scalability experiment (n=1k–10k, 5 repeats)
-├── generate_figures.py          ← 4 matplotlib paper figures
-├── benchmark_scalability.json   ← Raw experiment data
-├── benchmark_completeness.json  ← Raw experiment data
-├── pipeline_timing.json         ← Raw experiment data
-├── fig1_runtime_scaling.pdf/.png
-├── fig2_speedup.pdf/.png
-├── fig3_completeness.pdf/.png
-└── fig4_pipeline_breakdown.pdf/.png
-```
----
+## Author
 
-## Built With
+Shubham Singh  
+Final-year Computer Science & Engineering student
 
-Developed as a final year major project demonstrating real-world
-application of orbital mechanics, spatial algorithms, and full-stack
-engineering on live satellite data.
+Focus areas:
+
+- Orbital Mechanics
+- Spatial Algorithms
+- Collision Risk Analysis
+- Full Stack Engineering
+- Scientific Visualization
 
