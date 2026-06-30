@@ -4,11 +4,58 @@
 let chartsBuilt   = false;
 let chartInstances = [];
 
+function renderKPIStrip(conjunctions, analytics) {
+  const el = document.getElementById("kpi-strip");
+  if (!el) return;
+
+  const totalSats   = analytics.total_satellites ?? satRecords.length ?? 0;
+  const activeAlerts = conjunctions.length;
+  const criticalCount = conjunctions.filter(c => c.miss_distance_km < 10).length;
+  const highCount      = conjunctions.filter(c => c.miss_distance_km >= 10 && c.miss_distance_km < 25).length;
+
+  let health = "NOMINAL", healthClass = "kpi-nominal";
+  if (criticalCount >= 5)      { health = "CRITICAL"; healthClass = "kpi-critical"; }
+  else if (criticalCount >= 1) { health = "ELEVATED"; healthClass = "kpi-elevated"; }
+
+  const topSat = (analytics.top_satellites && analytics.top_satellites[0])
+    ? analytics.top_satellites[0].name.replace("STARLINK-", "SL-")
+    : "—";
+
+  el.innerHTML = `
+    <div class="kpi-card">
+      <div class="kpi-label">Total Satellites</div>
+      <div class="kpi-value">${totalSats.toLocaleString()}</div>
+      <div class="kpi-sub">Tracked from CelesTrak</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Active Alerts</div>
+      <div class="kpi-value">${activeAlerts.toLocaleString()}</div>
+      <div class="kpi-sub">Conjunctions within 50 km</div>
+    </div>
+    <div class="kpi-card ${criticalCount > 0 ? 'kpi-critical' : ''}">
+      <div class="kpi-label">High-Risk Conjunctions</div>
+      <div class="kpi-value">${criticalCount}</div>
+      <div class="kpi-sub">${highCount} additional in high tier</div>
+    </div>
+    <div class="kpi-card ${healthClass}">
+      <div class="kpi-label">System Health</div>
+      <div class="kpi-value" style="font-size:var(--fs-lg)">${health}</div>
+      <div class="kpi-sub">Based on critical-tier count</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">Top Watch Item</div>
+      <div class="kpi-value" style="font-size:var(--fs-lg)">${topSat}</div>
+      <div class="kpi-sub">Highest cumulative risk</div>
+    </div>
+  `;
+}
+
 async function buildDashboard(conjunctions, analytics) {
   if (chartsBuilt) return;
   chartsBuilt = true;
 
-  // Destroy any existing charts first
+  renderKPIStrip(conjunctions, analytics);
+
   chartInstances.forEach(c => c.destroy());
   chartInstances = [];
 
@@ -21,7 +68,6 @@ async function buildDashboard(conjunctions, analytics) {
     y: { ticks: { color: tickColor, font: tickFont }, grid: { color: gridColor } }
   };
 
-  // ── Chart 1: Risk distribution ────────────────────────
   const riskDist   = analytics.risk_distribution || [];
   const riskLabels = riskDist.map(r => r.level.charAt(0).toUpperCase() + r.level.slice(1));
   const riskCounts = riskDist.map(r => r.count);
@@ -67,7 +113,6 @@ async function buildDashboard(conjunctions, analytics) {
     }
   }));
 
-  // ── Chart 2: Top satellites by risk score ─────────────
   const topSats  = analytics.top_satellites || [];
   const satNames = topSats.map(s => s.name.replace("STARLINK-", "SL-"));
   const satRisks = topSats.map(s => parseFloat((s.total_risk * 1e6).toFixed(2)));
@@ -104,7 +149,6 @@ async function buildDashboard(conjunctions, analytics) {
     }
   }));
 
-  // ── Chart 3: Miss distance distribution ───────────────
   const buckets = [
     { label: "0–5 km",   min: 0,  max: 5  },
     { label: "5–10 km",  min: 5,  max: 10 },
@@ -144,7 +188,6 @@ async function buildDashboard(conjunctions, analytics) {
     }
   }));
 
-  // ── Chart 4: Relative velocity distribution ───────────
   const velBuckets = [
     { label: "0–3",   min: 0,  max: 3  },
     { label: "3–6",   min: 3,  max: 6  },
@@ -185,10 +228,6 @@ async function buildDashboard(conjunctions, analytics) {
     }
   }));
 
-  // ── Chart 5: Satellite altitude distribution ──────────
-  // Colors deliberately match the altitude-based satellite coloring
-  // used on the 3D globe (frontend/js/satellites.js), so this chart
-  // and the globe visually agree with each other.
   const altDist = analytics.altitude_distribution || [];
 
   chartInstances.push(new Chart(document.getElementById("chart-altitude"), {
@@ -198,11 +237,11 @@ async function buildDashboard(conjunctions, analytics) {
       datasets: [{
         data: altDist.map(a => a.count),
         backgroundColor: [
-          "rgba(80,220,120,0.70)",   // > 560 km — green
-          "rgba(170,220,80,0.68)",   // 530-560 km — yellow-green
-          "rgba(240,210,60,0.66)",   // 500-530 km — yellow
-          "rgba(255,160,60,0.66)",   // 470-500 km — orange-yellow
-          "rgba(255,110,60,0.70)"    // < 470 km — orange
+          "rgba(80,220,120,0.70)",
+          "rgba(170,220,80,0.68)",
+          "rgba(240,210,60,0.66)",
+          "rgba(255,160,60,0.66)",
+          "rgba(255,110,60,0.70)"
         ],
         borderColor: "transparent",
         borderRadius: 4,
@@ -221,4 +260,3 @@ async function buildDashboard(conjunctions, analytics) {
     }
   }));
 }
-

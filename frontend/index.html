@@ -9,7 +9,10 @@
 <body>
 
   <div id="topbar">
-    <div id="logo">OrbitWatch</div>
+    <div id="logo-group">
+      <div id="logo">OrbitWatch</div>
+      <span id="live-dot" title="Live data feed active"></span>
+    </div>
     <div id="nav">
       <button class="nav-btn active" id="btn-globe"     onclick="showView('globe')">Globe</button>
       <button class="nav-btn"        id="btn-dashboard" onclick="showView('dashboard')">Analytics</button>
@@ -69,6 +72,7 @@
   </div>
 
   <div id="dashboard-view" class="view hidden">
+    <div id="kpi-strip"></div>
     <div class="dashboard-grid">
       <div class="chart-card">
         <div class="chart-title">Risk Level Distribution</div>
