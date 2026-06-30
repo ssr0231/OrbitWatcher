@@ -2,7 +2,12 @@
 
 import os
 import sys
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+FRONTEND_DIR = PROJECT_ROOT / "frontend"
+INDEX_FILE = FRONTEND_DIR / "index.html"
+sys.path.append(str(PROJECT_ROOT))
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,7 +51,7 @@ app.include_router(analytics.router,    prefix=API_PREFIX)
 app.include_router(maneuvers.router,    prefix=API_PREFIX)
 app.include_router(forecast.router,     prefix=API_PREFIX)
 
-app.mount("/static", StaticFiles(directory="frontend"), name="static")
+app.mount("/static", StaticFiles(directory=str(FRONTEND_DIR)), name="static")
 
 
 @app.on_event("startup")
@@ -61,7 +66,7 @@ async def on_startup():
 
 @app.get("/")
 def root():
-    return FileResponse("frontend/index.html")
+    return FileResponse(str(INDEX_FILE))
 
 
 @app.get("/health")
