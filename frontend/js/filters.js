@@ -44,7 +44,16 @@ function initFilters() {
 }
 
 function toggleFilterPanel() {
-  document.getElementById("filter-panel").classList.toggle("hidden");
+  const panel = document.getElementById("filter-panel");
+  if (!panel) return;
+
+  const willOpen = panel.classList.contains("hidden");
+  if (willOpen && window.PanelManager) {
+    PanelManager.open("filters", () => panel.classList.remove("hidden"));
+    return;
+  }
+
+  panel.classList.add("hidden");
 }
 
 function resetFilters() {

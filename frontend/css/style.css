@@ -127,18 +127,18 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   #live-dot { animation: none; }
 }
 
-#nav { display: flex; gap: 6px; }
+#nav { display: flex; gap: 5px; }
 
 .nav-btn {
   background: transparent;
   border: 1px solid var(--border);
   color: var(--text-tertiary);
-  padding: 9px 18px;
+  padding: 7px 14px;
   border-radius: var(--radius-sm);
   font-family: var(--font-ui);
-  font-size: var(--fs-xs);
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 1.3px;
+  letter-spacing: 1px;
   text-transform: uppercase;
   cursor: pointer;
   transition: all 0.18s ease;
@@ -317,6 +317,66 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 }
 
 #btn-filter-reset { width: 100%; text-align: center; }
+
+#globe-display-icons {
+  position: relative;
+  display: flex;
+  gap: 7px;
+  padding: 4px 6px;
+  border-radius: 10px;
+  background: rgba(12, 15, 28, 0.86);
+  border: 1px solid rgba(130, 148, 255, 0.2);
+}
+
+.display-icon-btn {
+  width: 31px;
+  height: 31px;
+  border: 1px solid rgba(122, 138, 214, 0.42);
+  background: linear-gradient(180deg, rgba(34, 39, 67, 0.95), rgba(19, 22, 40, 0.95));
+  border-radius: 7px;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #8fa4d8;
+  position: relative;
+  transition: border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+}
+
+.display-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  stroke: currentColor;
+  stroke-width: 1.25;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.display-icon-btn:hover {
+  color: #c7dbff;
+  border-color: rgba(158, 184, 255, 0.75);
+  box-shadow: 0 0 0 1px rgba(120, 156, 255, 0.18) inset;
+}
+
+.display-icon-btn.is-active {
+  color: #9fe7ff;
+  border-color: rgba(98, 192, 227, 0.9);
+  box-shadow: 0 0 0 1px rgba(83, 184, 217, 0.28) inset;
+}
+
+.display-icon-btn.is-active::after {
+  content: "";
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #37dc7d;
+  box-shadow: 0 0 8px rgba(55, 220, 125, 0.7);
+}
 
 #side-panel {
   position: absolute;
@@ -813,7 +873,8 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   border-top: 1px solid var(--border);
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 8px;
   padding: 0 18px;
   z-index: 20;
 }
@@ -823,6 +884,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   font-weight: 500;
   color: var(--text-tertiary);
   letter-spacing: 0.4px;
+  margin-right: 10px;
 }
 
 .btn-control {
@@ -845,7 +907,58 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   color: var(--accent-bright);
 }
 
-#time-controls { display: flex; align-items: center; gap: 6px; }
+#time-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+#btn-rotation {
+  margin-left: auto;
+}
+
+#time-controls .mission-chip,
+#btn-rotation.mission-chip {
+  width: 30px;
+  min-width: 30px;
+  height: 29px;
+  padding: 0;
+  border-radius: 7px;
+  border: 1px solid rgba(122, 138, 214, 0.42);
+  background: linear-gradient(180deg, rgba(34, 39, 67, 0.95), rgba(19, 22, 40, 0.95));
+  color: #9db1df;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
+}
+
+#time-controls .mission-chip:hover,
+#btn-rotation.mission-chip:hover {
+  color: #d7e5ff;
+  border-color: rgba(158, 184, 255, 0.76);
+  background: linear-gradient(180deg, rgba(43, 51, 84, 0.98), rgba(23, 28, 51, 0.98));
+  box-shadow: 0 0 0 1px rgba(120, 156, 255, 0.2) inset;
+  transform: translateY(-1px);
+}
+
+#time-controls .mission-chip:active,
+#btn-rotation.mission-chip:active {
+  transform: translateY(0);
+}
+
+#time-controls .mission-chip-now {
+  color: #9fe7ff;
+  border-color: rgba(98, 192, 227, 0.75);
+  box-shadow: 0 0 0 1px rgba(83, 184, 217, 0.22) inset;
+}
 
 #stat-time.sim-active {
   color: var(--risk-medium) !important;
@@ -986,4 +1099,5 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   #kpi-strip { grid-template-columns: repeat(2, 1fr); }
   .dashboard-grid { grid-template-columns: 1fr; }
   #stats { display: none; }
+  #globe-display-icons { display: none; }
 }

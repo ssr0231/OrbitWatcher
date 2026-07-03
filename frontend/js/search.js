@@ -19,14 +19,18 @@ function handleSearch(query) {
   const trimmed = query.trim().toUpperCase();
 
   if (trimmed.length < 2) {
-    box.style.display = "none";
-    box.innerHTML     = "";
+    if (window.PanelManager) PanelManager.close("search");
+    else {
+      box.style.display = "none";
+      box.innerHTML     = "";
+    }
     return;
   }
 
   if (allSatelliteNames.length === 0) {
     box.innerHTML     = `<div class="search-result-item" style="color:#404a70">Still loading...</div>`;
-    box.style.display = "block";
+    if (window.PanelManager) PanelManager.open("search", () => { box.style.display = "block"; });
+    else box.style.display = "block";
     return;
   }
 
@@ -36,7 +40,8 @@ function handleSearch(query) {
 
   if (matches.length === 0) {
     box.innerHTML     = `<div class="search-result-item" style="color:#404a70">No results found</div>`;
-    box.style.display = "block";
+    if (window.PanelManager) PanelManager.open("search", () => { box.style.display = "block"; });
+    else box.style.display = "block";
     return;
   }
 
@@ -51,11 +56,13 @@ function handleSearch(query) {
             </div>`;
   }).join("");
 
-  box.style.display = "block";
+  if (window.PanelManager) PanelManager.open("search", () => { box.style.display = "block"; });
+  else box.style.display = "block";
 }
 
 function selectSatellite(name) {
-  document.getElementById("search-results").style.display = "none";
+  if (window.PanelManager) PanelManager.close("search");
+  else document.getElementById("search-results").style.display = "none";
   document.getElementById("sat-search").value = name;
 
   const rec = satRecords.find(r => r.name === name);
@@ -94,7 +101,10 @@ function selectSatellite(name) {
 
 document.addEventListener("click", e => {
   if (!e.target.closest("#search-bar")) {
-    const box = document.getElementById("search-results");
-    if (box) box.style.display = "none";
+    if (window.PanelManager) PanelManager.close("search");
+    else {
+      const box = document.getElementById("search-results");
+      if (box) box.style.display = "none";
+    }
   }
 });

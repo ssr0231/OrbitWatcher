@@ -8,6 +8,10 @@ let isDragging = false;
 let previousMouse = { x: 0, y: 0 };
 let earthGroup;
 let autoRotate = true;
+let latLonGridMesh = null;
+let countryBordersMesh = null;
+let latLonGridEnabled = true;
+let countryBordersEnabled = true;
 
 // ── Selection trail state ──────────────────────────────
 let _primTrail  = null, _primMarker  = null, _primRec  = null;
@@ -61,7 +65,17 @@ function timeRealtime() {
 
 function _updateTimeControlsUI() {
   const pauseBtn = document.getElementById("btn-time-pause");
-  if (pauseBtn) pauseBtn.textContent = simPaused ? "▶ Resume" : "⏸ Pause";
+  if (pauseBtn) {
+    if (simPaused) {
+      pauseBtn.textContent = "▶";
+      pauseBtn.title = "Resume simulation time";
+      pauseBtn.setAttribute("aria-label", "Resume simulation time");
+    } else {
+      pauseBtn.textContent = "⏸";
+      pauseBtn.title = "Pause simulation time";
+      pauseBtn.setAttribute("aria-label", "Pause simulation time");
+    }
+  }
 
   // Visually distinguish "live" from "simulated/offset" time so it's
   // never ambiguous whether the globe is showing the real present.
@@ -117,25 +131,35 @@ function initGlobe() {
   loader.load(
     "https://unpkg.com/three-globe/example/img/earth-topology.png",
     tex => {
-      earthGroup.add(new THREE.Mesh(
+      countryBordersMesh = new THREE.Mesh(
         new THREE.SphereGeometry(EARTH_RADIUS + 0.001, 80, 80),
         new THREE.MeshBasicMaterial({
-          map: tex, transparent: true, opacity: 0.06,
-          blending: THREE.AdditiveBlending
+          map: tex,
+          color: 0xb5c9ff,
+          transparent: true,
+          opacity: 0.14,
+          blending: THREE.NormalBlending,
+          depthWrite: false
         })
-      ));
+      );
+      countryBordersMesh.visible = countryBordersEnabled;
+      earthGroup.add(countryBordersMesh);
     }
   );
 
   // Thin grid overlay (latitude/longitude lines)
   const gridGeo = new THREE.SphereGeometry(EARTH_RADIUS + 0.002, 36, 18);
   const gridMat = new THREE.MeshBasicMaterial({
-    color:       0x1a2a5a,
+    color:       0x53b8d9,
     wireframe:   true,
     transparent: true,
-    opacity:     0.08
+    opacity:     0.15,
+    blending:    THREE.NormalBlending,
+    depthWrite:  false
   });
-  earthGroup.add(new THREE.Mesh(gridGeo, gridMat));
+  latLonGridMesh = new THREE.Mesh(gridGeo, gridMat);
+  latLonGridMesh.visible = latLonGridEnabled;
+  earthGroup.add(latLonGridMesh);
 
   // Outer atmosphere glow
   earthGroup.add(new THREE.Mesh(
@@ -161,6 +185,8 @@ function initGlobe() {
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
+
+  _updateGlobeDisplayControlsUI();
 }
 
 function buildStarfield() {
@@ -318,7 +344,51 @@ function clearSelectionTrail() {
 function toggleRotation() {
   autoRotate = !autoRotate;
   const btn = document.getElementById("btn-rotation");
-  if (btn) btn.textContent = autoRotate ? "⏸ Rotation" : "▶ Rotation";
+  if (btn) {
+    if (autoRotate) {
+      btn.textContent = "⏸";
+      btn.title = "Pause globe rotation";
+      btn.setAttribute("aria-label", "Pause globe rotation");
+    } else {
+      btn.textContent = "▶";
+      btn.title = "Resume globe rotation";
+      btn.setAttribute("aria-label", "Resume globe rotation");
+    }
+  }
+}
+
+function toggleLatLonGrid() {
+  latLonGridEnabled = !latLonGridEnabled;
+  if (latLonGridMesh) latLonGridMesh.visible = latLonGridEnabled;
+  _updateGlobeDisplayControlsUI();
+}
+
+function toggleCountryBorders() {
+  countryBordersEnabled = !countryBordersEnabled;
+  if (countryBordersMesh) countryBordersMesh.visible = countryBordersEnabled;
+  _updateGlobeDisplayControlsUI();
+}
+
+function _updateGlobeDisplayControlsUI() {
+  const gridBtn = document.getElementById("btn-grid-toggle");
+  if (gridBtn) {
+    const label = latLonGridEnabled
+      ? "Latitude/Longitude Grid: ON"
+      : "Latitude/Longitude Grid: OFF";
+    gridBtn.title = label;
+    gridBtn.setAttribute("aria-label", label);
+    gridBtn.classList.toggle("is-active", latLonGridEnabled);
+  }
+
+  const bordersBtn = document.getElementById("btn-borders-toggle");
+  if (bordersBtn) {
+    const label = countryBordersEnabled
+      ? "Country Borders: ON"
+      : "Country Borders: OFF";
+    bordersBtn.title = label;
+    bordersBtn.setAttribute("aria-label", label);
+    bordersBtn.classList.toggle("is-active", countryBordersEnabled);
+  }
 }
 
 function renderLoop() {

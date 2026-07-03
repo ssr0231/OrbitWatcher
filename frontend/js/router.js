@@ -38,6 +38,7 @@ function showView(view) {
     if (manView)   manView.classList.remove("hidden");
 
   } else if (view === "forecast") {
+    if (window.PanelManager) PanelManager.closeAllExcept("forecast");
     if (sidePanel) sidePanel.classList.add("hidden");
     if (searchBar) searchBar.classList.add("hidden");
     if (foreView)  foreView.classList.remove("hidden");

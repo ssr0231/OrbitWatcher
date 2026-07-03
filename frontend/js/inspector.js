@@ -150,7 +150,11 @@ function openInspector(name, rec, conjunctions) {
   }
 
   body.innerHTML = posHTML + orbitHTML + conjHTML + simHTML;
-  panel.classList.remove("hidden");
+  if (window.PanelManager) {
+    PanelManager.open("inspector", () => panel.classList.remove("hidden"));
+  } else {
+    panel.classList.remove("hidden");
+  }
 }
 
 
@@ -239,12 +243,15 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
 }
 
 
-function closeInspector() {
+function closeInspector(options = {}) {
   const panel = document.getElementById("inspector");
   if (panel) panel.classList.add("hidden");
   clearSelectionTrail();
-  const s = document.getElementById("sat-search");
-  if (s) s.value = "";
+  const preserveSearch = !!options.preserveSearch;
+  if (!preserveSearch) {
+    const s = document.getElementById("sat-search");
+    if (s) s.value = "";
+  }
 }
 
 function flashSatellite(id) {
