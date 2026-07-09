@@ -70,16 +70,10 @@ function selectSatellite(name) {
 
   const conjs = conjunctionLookup[name] || [];
 
-  // Open inspector with orbital parameters
   openInspector(name, rec, conjs);
-
-  // Clear previous trails
   clearSelectionTrail();
-
-  // Draw teal orbit trail for this satellite
   drawSelectionTrail(rec);
 
-  // If it has a conjunction partner, draw that in red too
   if (conjs.length > 0) {
     const partnerName = conjs[0].sat1_name === name
       ? conjs[0].sat2_name
@@ -88,13 +82,15 @@ function selectSatellite(name) {
     if (partner) drawSecondaryTrail(partner);
   }
 
-  // Rotate globe to face the satellite's current longitude
+  // Point the camera toward the selected satellite.
+  // globeFaceSatellite() is defined in globe.js — it converts the
+  // satellite's ECI position to camera spherical angles (theta/phi)
+  // so the camera rotates to face the satellite rather than rotating
+  // the earthGroup as the old model did.
   try {
     const pv = satellite.propagate(rec.satrec, new Date());
     if (pv && pv.position) {
-      const p   = pv.position;
-      const lon = Math.atan2(p.y, p.x);
-      earthGroup.rotation.y = -lon;
+      globeFaceSatellite(pv.position);
     }
   } catch(e) {}
 }
