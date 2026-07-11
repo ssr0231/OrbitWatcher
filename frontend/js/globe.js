@@ -22,15 +22,20 @@ let _cameraTheta     = 0;
 let _cameraPhi       = 0;
 let _cameraRadius    = 2.8;
 let _lastInteraction = Date.now();
-
-// State 0 = Normal, 1 = Fast, 2 = Fastest, 3 = OFF
 let _cameraOrbitState = 0;
 const _ORBIT_SPEEDS   = [0.00010, 0.00028, 0.00055, 0];
-const _ORBIT_RESUME_MS = 1000;  // resume cinematic 1 second after interaction
+const _ORBIT_RESUME_MS = 1000;
 
 // ── Selection trail state ──────────────────────────────
 let _primTrail  = null, _primMarker  = null, _primRec  = null;
 let _secTrail   = null, _secMarker   = null, _secRec   = null;
+
+// ── Conjunction line state ─────────────────────────────
+// Lines are drawn between the selected satellite and each of its
+// conjunction partners whenever the inspector opens. They are
+// cleared when the inspector closes or a new satellite is selected.
+// Lines live in earthGroup so they rotate with Earth correctly.
+let _conjLines = [];
 
 // ── Time simulation state ──────────────────────────────
 let simTimeMs        = Date.now();
@@ -112,10 +117,7 @@ function _updateSunPosition() {
   }
 }
 
-// ── Sun texture — canvas-drawn star burst ──────────────
-// Draws a realistic star with 8 sharp rays (4 long, 4 shorter at 45°)
-// onto a canvas, then converts to a Three.js texture for a Sprite.
-// AdditiveBlending makes it glow against the dark space background.
+// ── Sun texture ────────────────────────────────────────
 function _createSunTexture() {
   const S  = 512;
   const cv = document.createElement("canvas");
@@ -125,7 +127,6 @@ function _createSunTexture() {
 
   ctx.clearRect(0, 0, S, S);
 
-  // Outer warm glow — large soft radial gradient
   const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
   glow.addColorStop(0.00, "rgba(255,255,230,1.0)");
   glow.addColorStop(0.04, "rgba(255,255,210,0.95)");
@@ -137,25 +138,21 @@ function _createSunTexture() {
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, S, S);
 
-  // 8 sharp star rays — 4 main (longer) + 4 diagonal (shorter)
   const numRays = 8;
   for (let i = 0; i < numRays; i++) {
     const angle  = (i / numRays) * Math.PI * 2;
     const isMain = i % 2 === 0;
     const len    = isMain ? R * 0.96 : R * 0.58;
-    const hw     = isMain ? 2.2 : 1.4;  // half-width at origin (pixels)
-
+    const hw     = isMain ? 2.2 : 1.4;
     ctx.save();
     ctx.translate(cx, cy);
     ctx.rotate(angle);
-
     const sg = ctx.createLinearGradient(0, 0, len, 0);
     sg.addColorStop(0.00, "rgba(255,255,255,1.0)");
     sg.addColorStop(0.06, "rgba(255,255,255,0.95)");
     sg.addColorStop(0.25, "rgba(255,255,240,0.50)");
     sg.addColorStop(0.55, "rgba(255,255,220,0.15)");
     sg.addColorStop(1.00, "rgba(255,255,255,0.00)");
-
     ctx.beginPath();
     ctx.moveTo(0, -hw);
     ctx.lineTo(len, 0);
@@ -163,11 +160,9 @@ function _createSunTexture() {
     ctx.closePath();
     ctx.fillStyle = sg;
     ctx.fill();
-
     ctx.restore();
   }
 
-  // Bright white hot core on top
   const core = ctx.createRadialGradient(cx, cy, 0, cx, cy, R * 0.07);
   core.addColorStop(0.0, "rgba(255,255,255,1.0)");
   core.addColorStop(0.5, "rgba(255,255,255,0.85)");
@@ -196,6 +191,88 @@ function globeFaceSatellite(eciPos) {
   _cameraPhi   = Math.asin(Math.max(-1, Math.min(1, ty)));
 }
 
+// ── Conjunction lines ──────────────────────────────────
+// Draws dashed lines from the selected satellite to each conjunction
+// partner. Color matches the risk tier of that specific conjunction:
+//   Critical (< 10 km):  red    #ff5252
+//   High     (10–25 km): orange #ff9d42
+//   Medium   (25–50 km): yellow #ffd84d
+//
+// Lines live in earthGroup so they rotate with Earth correctly.
+// They are purely visual — no data is changed, no backend calls made.
+// They are drawn at current simulation time positions of both satellites.
+function drawConjunctionLines(conjunctions, primaryName) {
+  clearConjunctionLines();
+  if (!conjunctions || !conjunctions.length || !satRecords.length) return;
+
+  const now        = getSimTime();
+  const primaryRec = satRecords.find(r => r.name === primaryName);
+  if (!primaryRec) return;
+
+  let pv1;
+  try {
+    pv1 = satellite.propagate(primaryRec.satrec, now);
+    if (!pv1 || !pv1.position || pv1.position === false) return;
+  } catch(e) { return; }
+
+  const p1 = new THREE.Vector3(
+     pv1.position.x * SCALE_FACTOR,
+     pv1.position.z * SCALE_FACTOR,
+    -pv1.position.y * SCALE_FACTOR
+  );
+
+  // Draw up to 5 conjunction lines (top 5 by risk, already sorted)
+  conjunctions.slice(0, 5).forEach(c => {
+    const partnerName = c.sat1_name === primaryName ? c.sat2_name : c.sat1_name;
+    const partnerRec  = satRecords.find(r => r.name === partnerName);
+    if (!partnerRec) return;
+
+    try {
+      const pv2 = satellite.propagate(partnerRec.satrec, now);
+      if (!pv2 || !pv2.position || pv2.position === false) return;
+
+      const p2 = new THREE.Vector3(
+         pv2.position.x * SCALE_FACTOR,
+         pv2.position.z * SCALE_FACTOR,
+        -pv2.position.y * SCALE_FACTOR
+      );
+
+      // Risk color matching the CSS design system tokens
+      let color;
+      if      (c.miss_distance_km < 10) color = 0xff5252;  // --risk-critical
+      else if (c.miss_distance_km < 25) color = 0xff9d42;  // --risk-high
+      else                               color = 0xffd84d;  // --risk-medium
+
+      const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+      const mat = new THREE.LineDashedMaterial({
+        color,
+        dashSize:    0.022,
+        gapSize:     0.010,
+        transparent: true,
+        opacity:     0.75,
+        depthWrite:  false
+      });
+
+      const line = new THREE.Line(geo, mat);
+      line.computeLineDistances();  // required for LineDashedMaterial
+      earthGroup.add(line);
+      _conjLines.push(line);
+
+    } catch(e) {}
+  });
+}
+
+// Removes all active conjunction lines from the scene and
+// disposes their geometry and material to free GPU memory.
+function clearConjunctionLines() {
+  _conjLines.forEach(line => {
+    earthGroup.remove(line);
+    line.geometry.dispose();
+    line.material.dispose();
+  });
+  _conjLines = [];
+}
+
 function initGlobe() {
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(
@@ -214,7 +291,6 @@ function initGlobe() {
   const loader   = new THREE.TextureLoader();
   const earthGeo = new THREE.SphereGeometry(EARTH_RADIUS, 80, 80);
 
-  // Day texture — responds to DirectionalLight for day/night effect
   loader.load(
     "https://unpkg.com/three-globe/example/img/earth-day.jpg",
     tex => {
@@ -234,7 +310,6 @@ function initGlobe() {
     }
   );
 
-  // Night city lights — additive overlay (dark adds nothing on day side)
   loader.load(
     "https://unpkg.com/three-globe/example/img/earth-night.jpg",
     tex => {
@@ -251,7 +326,6 @@ function initGlobe() {
     }
   );
 
-  // Country borders overlay
   loader.load(
     "https://unpkg.com/three-globe/example/img/earth-topology.png",
     tex => {
@@ -271,7 +345,6 @@ function initGlobe() {
     }
   );
 
-  // Lat/Lon grid
   const gridGeo = new THREE.SphereGeometry(EARTH_RADIUS + 0.002, 36, 18);
   const gridMat = new THREE.MeshBasicMaterial({
     color:       0x53b8d9,
@@ -285,7 +358,6 @@ function initGlobe() {
   latLonGridMesh.visible = latLonGridEnabled;
   earthGroup.add(latLonGridMesh);
 
-  // Atmosphere glow
   earthGroup.add(new THREE.Mesh(
     new THREE.SphereGeometry(EARTH_RADIUS + 0.04, 64, 64),
     new THREE.MeshPhongMaterial({
@@ -293,20 +365,12 @@ function initGlobe() {
     })
   ));
 
-  // Near-zero ambient — space is dark, keeps day/night contrast sharp
   scene.add(new THREE.AmbientLight(0x0a1428, 0.06));
 
-  // Sun directional light — position updated every frame
   sunLight = new THREE.DirectionalLight(0xfff8e0, 2.8);
   _updateSunPosition();
   scene.add(sunLight);
 
-  // ── Visible sun — canvas star burst sprite ─────────────
-  // THREE.Sprite always faces the camera (billboard).
-  // AdditiveBlending makes the glow add to the dark background.
-  // depthWrite: false prevents the transparent edges from occluding stars.
-  // scale (26, 26, 1) gives a clearly visible but not screen-filling disc
-  // at 100 units distance with FOV 52°.
   const sunTex = _createSunTexture();
   _sunMesh = new THREE.Sprite(
     new THREE.SpriteMaterial({
@@ -493,10 +557,6 @@ function toggleRotation() {
   }
 }
 
-// Cycles camera orbit through: Normal → Fast → Fastest → OFF → Normal
-// _ORBIT_SPEEDS[state] drives the theta increment in renderLoop.
-// State 3 = OFF: cinematic orbit fully disabled until toggled back.
-// States 0-2: orbit pauses on interaction and resumes after _ORBIT_RESUME_MS.
 function toggleCameraOrbit() {
   _cameraOrbitState = (_cameraOrbitState + 1) % 4;
   _updateGlobeDisplayControlsUI();
@@ -531,8 +591,6 @@ function _updateGlobeDisplayControlsUI() {
     bordersBtn.classList.toggle("is-active", countryBordersEnabled);
   }
 
-  // Camera orbit button: tooltip shows current speed state.
-  // is-active (green dot) whenever orbit is not OFF.
   const orbitBtn = document.getElementById("btn-camera-orbit");
   if (orbitBtn) {
     const labels = [
@@ -541,9 +599,8 @@ function _updateGlobeDisplayControlsUI() {
       "Camera Orbit: Fastest — click to turn OFF",
       "Camera Orbit: OFF — click to resume Normal"
     ];
-    const label = labels[_cameraOrbitState];
-    orbitBtn.title = label;
-    orbitBtn.setAttribute("aria-label", label);
+    orbitBtn.title = labels[_cameraOrbitState];
+    orbitBtn.setAttribute("aria-label", labels[_cameraOrbitState]);
     orbitBtn.classList.toggle("is-active", _cameraOrbitState < 3);
   }
 }
@@ -551,24 +608,15 @@ function _updateGlobeDisplayControlsUI() {
 function renderLoop() {
   requestAnimationFrame(renderLoop);
   tickSimTime();
-
-  // Sun: update direction and visible sprite from simulation time
   _updateSunPosition();
 
-  // Cinematic camera orbit.
-  // States 0-2: auto-orbit with increasing speed, pauses on interaction.
-  // State  3:   orbit completely off, camera stays where user left it.
   const idle = !isDragging && (Date.now() - _lastInteraction > _ORBIT_RESUME_MS);
   if (_cameraOrbitState < 3 && idle) {
     _cameraTheta += _ORBIT_SPEEDS[_cameraOrbitState];
   }
 
-  // Always recompute camera from spherical coords so zoom and drag
-  // both take effect immediately without any state inconsistency.
   _updateCameraPosition();
 
-  // Earth's physical rotation — independent of camera orbit.
-  // Runs even when camera orbit is paused, so the terminator shifts.
   if (autoRotate) {
     earthGroup.rotation.y += 0.0002;
   }

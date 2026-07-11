@@ -78,12 +78,25 @@ function openInspector(name, rec, conjunctions) {
   let conjHTML = "";
   if (conjunctions && conjunctions.length > 0) {
     const items = conjunctions.slice(0, 4).map(c => {
-      const other    = c.sat1_name === name ? c.sat2_name : c.sat1_name;
+      const other      = c.sat1_name === name ? c.sat2_name : c.sat1_name;
       const isCritical = c.miss_distance_km < 10;
+
+      // TCA display — show only if meaningful (not the 999 sentinel)
+      let tcaStr = "";
+      if (c.tca_seconds !== undefined && c.tca_seconds !== null) {
+        if (c.tca_seconds >= 999) {
+          tcaStr = "TCA undetermined";
+        } else if (c.tca_seconds >= 0) {
+          tcaStr = `TCA in ${c.tca_seconds.toFixed(1)}s`;
+        } else {
+          tcaStr = `TCA ${Math.abs(c.tca_seconds).toFixed(1)}s ago`;
+        }
+      }
+
       return `
         <div class="insp-conj-card ${isCritical ? '' : 'insp-conj-high'}">
           <div class="insp-conj-name">${other}</div>
-          <div class="insp-conj-detail">${c.miss_distance_km.toFixed(2)} km away · Risk ${c.risk_score.toExponential(2)}</div>
+          <div class="insp-conj-detail">${c.miss_distance_km.toFixed(2)} km · Risk ${c.risk_score.toExponential(2)}${tcaStr ? ' · ' + tcaStr : ''}</div>
         </div>`;
     }).join("");
     conjHTML = `
@@ -101,17 +114,15 @@ function openInspector(name, rec, conjunctions) {
 
   let simHTML = "";
   if (conjunctions && conjunctions.length > 0) {
-    const topConj    = conjunctions[0];
-    const partnerName = topConj.sat1_name === name
-      ? topConj.sat2_name : topConj.sat1_name;
-    const baseRisk   = topConj.risk_score;
-    const baseDist   = topConj.miss_distance_km;
+    const topConj     = conjunctions[0];
+    const partnerName = topConj.sat1_name === name ? topConj.sat2_name : topConj.sat1_name;
+    const baseRisk    = topConj.risk_score;
+    const baseDist    = topConj.miss_distance_km;
 
     simHTML = `
       <div id="sim-block">
         <div class="sim-title">Maneuver Simulation</div>
         <div class="sim-partner">Partner: <span>${partnerName}</span></div>
-
         <div class="sim-slider-labels">
           <span>← Retrograde (−300 s)</span>
           <span>Prograde (+300 s) →</span>
@@ -123,7 +134,6 @@ function openInspector(name, rec, conjunctions) {
         <div class="sim-offset-display">
           Offset: <span id="sim-offset-label">0 s (no burn)</span>
         </div>
-
         <div id="sim-results">
           <div class="sim-grid">
             <div class="sim-stat-box">
@@ -135,12 +145,10 @@ function openInspector(name, rec, conjunctions) {
               <div class="sim-stat-value" id="sim-new-dist" style="color:var(--text-tertiary)">— km</div>
             </div>
           </div>
-
           <div class="sim-meta-row">
             <div>Risk: <b style="color:var(--risk-critical)">${baseRisk.toExponential(2)}</b></div>
             <div>New risk: <b id="sim-new-risk">—</b></div>
           </div>
-
           <div class="sim-footer">
             <div class="sim-deltav-label">Δv estimate: <span class="sim-deltav-value" id="sim-deltav">0.0 m/s</span></div>
             <div id="sim-status" class="sim-status-badge sim-status-unsafe">UNSAFE</div>
@@ -150,6 +158,15 @@ function openInspector(name, rec, conjunctions) {
   }
 
   body.innerHTML = posHTML + orbitHTML + conjHTML + simHTML;
+
+  // Draw conjunction lines on the globe connecting selected satellite
+  // to all its conjunction partners. Cleared on closeInspector().
+  if (conjunctions && conjunctions.length > 0) {
+    if (typeof drawConjunctionLines === "function") {
+      drawConjunctionLines(conjunctions, name);
+    }
+  }
+
   if (window.PanelManager) {
     PanelManager.open("inspector", () => panel.classList.remove("hidden"));
   } else {
@@ -158,8 +175,7 @@ function openInspector(name, rec, conjunctions) {
 }
 
 
-function updateManeuverSim(offsetStr, primaryName, partnerName,
-                            baseDist, baseRisk) {
+function updateManeuverSim(offsetStr, primaryName, partnerName, baseDist, baseRisk) {
   const offset = parseFloat(offsetStr);
 
   document.getElementById("sim-offset-label").textContent =
@@ -186,10 +202,7 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
 
   const primaryRec = satRecords.find(r => r.name === primaryName);
   const partnerRec = satRecords.find(r => r.name === partnerName);
-  if (!primaryRec || !partnerRec) {
-    distEl.textContent = "N/A";
-    return;
-  }
+  if (!primaryRec || !partnerRec) { distEl.textContent = "N/A"; return; }
 
   try {
     const simTime = new Date(getSimTime().getTime() + offset * 1000);
@@ -198,8 +211,7 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
 
     if (!pv1 || !pv1.position || pv1.position === false ||
         !pv2 || !pv2.position || pv2.position === false) {
-      distEl.textContent = "Error";
-      return;
+      distEl.textContent = "Error"; return;
     }
 
     const dx   = pv1.position.x - pv2.position.x;
@@ -211,17 +223,14 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
     const dvy = pv1.velocity.y - pv2.velocity.y;
     const dvz = pv1.velocity.z - pv2.velocity.z;
     const rv  = Math.sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
-
     const newRisk = (1.0 / (dist + 1.0)) * (rv / 15.0);
 
     distEl.textContent = `${dist.toFixed(1)} km`;
     riskEl.textContent = newRisk.toExponential(2);
 
     const improved = dist > baseDist;
-    const improvedColor = "var(--risk-low)";
-    const worseColor    = "var(--risk-critical)";
-    distEl.style.color = improved ? improvedColor : worseColor;
-    riskEl.style.color = improved ? improvedColor : worseColor;
+    distEl.style.color = improved ? "var(--risk-low)" : "var(--risk-critical)";
+    riskEl.style.color = improved ? "var(--risk-low)" : "var(--risk-critical)";
 
     if (dist > 50) {
       statusEl.textContent = "SAFE";
@@ -236,7 +245,6 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
       statusEl.textContent = "UNSAFE";
       statusEl.className   = "sim-status-badge sim-status-unsafe";
     }
-
   } catch(e) {
     distEl.textContent = "Error";
   }
@@ -246,7 +254,13 @@ function updateManeuverSim(offsetStr, primaryName, partnerName,
 function closeInspector(options = {}) {
   const panel = document.getElementById("inspector");
   if (panel) panel.classList.add("hidden");
+
+  // Clear both orbit trails and conjunction lines
   clearSelectionTrail();
+  if (typeof clearConjunctionLines === "function") {
+    clearConjunctionLines();
+  }
+
   const preserveSearch = !!options.preserveSearch;
   if (!preserveSearch) {
     const s = document.getElementById("sat-search");
