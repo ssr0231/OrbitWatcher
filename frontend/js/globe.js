@@ -31,10 +31,6 @@ let _primTrail  = null, _primMarker  = null, _primRec  = null;
 let _secTrail   = null, _secMarker   = null, _secRec   = null;
 
 // ── Conjunction line state ─────────────────────────────
-// Lines are drawn between the selected satellite and each of its
-// conjunction partners whenever the inspector opens. They are
-// cleared when the inspector closes or a new satellite is selected.
-// Lines live in earthGroup so they rotate with Earth correctly.
 let _conjLines = [];
 
 // ── Time simulation state ──────────────────────────────
@@ -192,15 +188,6 @@ function globeFaceSatellite(eciPos) {
 }
 
 // ── Conjunction lines ──────────────────────────────────
-// Draws dashed lines from the selected satellite to each conjunction
-// partner. Color matches the risk tier of that specific conjunction:
-//   Critical (< 10 km):  red    #ff5252
-//   High     (10–25 km): orange #ff9d42
-//   Medium   (25–50 km): yellow #ffd84d
-//
-// Lines live in earthGroup so they rotate with Earth correctly.
-// They are purely visual — no data is changed, no backend calls made.
-// They are drawn at current simulation time positions of both satellites.
 function drawConjunctionLines(conjunctions, primaryName) {
   clearConjunctionLines();
   if (!conjunctions || !conjunctions.length || !satRecords.length) return;
@@ -221,7 +208,6 @@ function drawConjunctionLines(conjunctions, primaryName) {
     -pv1.position.y * SCALE_FACTOR
   );
 
-  // Draw up to 5 conjunction lines (top 5 by risk, already sorted)
   conjunctions.slice(0, 5).forEach(c => {
     const partnerName = c.sat1_name === primaryName ? c.sat2_name : c.sat1_name;
     const partnerRec  = satRecords.find(r => r.name === partnerName);
@@ -237,11 +223,10 @@ function drawConjunctionLines(conjunctions, primaryName) {
         -pv2.position.y * SCALE_FACTOR
       );
 
-      // Risk color matching the CSS design system tokens
       let color;
-      if      (c.miss_distance_km < 10) color = 0xff5252;  // --risk-critical
-      else if (c.miss_distance_km < 25) color = 0xff9d42;  // --risk-high
-      else                               color = 0xffd84d;  // --risk-medium
+      if      (c.miss_distance_km < 10) color = 0xff5252;
+      else if (c.miss_distance_km < 25) color = 0xff9d42;
+      else                               color = 0xffd84d;
 
       const geo = new THREE.BufferGeometry().setFromPoints([p1, p2]);
       const mat = new THREE.LineDashedMaterial({
@@ -254,7 +239,7 @@ function drawConjunctionLines(conjunctions, primaryName) {
       });
 
       const line = new THREE.Line(geo, mat);
-      line.computeLineDistances();  // required for LineDashedMaterial
+      line.computeLineDistances();
       earthGroup.add(line);
       _conjLines.push(line);
 
@@ -262,8 +247,6 @@ function drawConjunctionLines(conjunctions, primaryName) {
   });
 }
 
-// Removes all active conjunction lines from the scene and
-// disposes their geometry and material to free GPU memory.
 function clearConjunctionLines() {
   _conjLines.forEach(line => {
     earthGroup.remove(line);
@@ -395,20 +378,60 @@ function initGlobe() {
   _updateGlobeDisplayControlsUI();
 }
 
+// ── Starfield ──────────────────────────────────────────
+// Previous implementation used random Cartesian spread which creates
+// uneven star distribution — dense clusters in some directions, visible
+// holes in others. The fix uses uniform sphere surface sampling via the
+// Marsaglia method: generate two uniform random numbers, reject if they
+// fall outside the unit circle, then map the accepted pair to a point
+// on the sphere surface. This guarantees every direction in the sky
+// has the same expected star density.
+//
+// sizeAttenuation: false means stars stay the same angular pixel size
+// regardless of zoom level — exactly how real stars appear. With
+// sizeAttenuation: true they shrink as you zoom out, which looks wrong.
+//
+// Three layers create depth:
+//   Layer 0: 9000 dim white stars, size 0.7px  — distant background
+//   Layer 1: 1500 slightly brighter blue-white, size 1.1px — mid-field
+//   Layer 2:  200 bright white prominent stars, size 1.8px — foreground
 function buildStarfield() {
-  [10000, 2000].forEach((count, layer) => {
-    const pos    = new Float32Array(count * 3);
-    const spread = layer === 0 ? 700 : 180;
-    for (let i = 0; i < count * 3; i++) {
-      pos[i] = (Math.random() - 0.5) * spread;
+  const layers = [
+    { count: 9000, radius: 500, color: 0xffffff, size: 0.7,  opacity: 0.55 },
+    { count: 1500, radius: 480, color: 0xd0ddff, size: 1.1,  opacity: 0.70 },
+    { count:  200, radius: 460, color: 0xffffff, size: 1.8,  opacity: 0.90 },
+  ];
+
+  layers.forEach(({ count, radius, color, size, opacity }) => {
+    const pos = new Float32Array(count * 3);
+    let   i   = 0;
+
+    // Marsaglia uniform sphere sampling — no trigonometry, no clustering.
+    // Rejection rate is exactly 1 - π/4 ≈ 21.5%, so we need ~1.28× attempts
+    // on average. In practice this loop fills count points very quickly.
+    while (i < count) {
+      const u = Math.random() * 2 - 1;
+      const v = Math.random() * 2 - 1;
+      if (u * u + v * v >= 1) continue;  // reject — outside unit circle
+
+      const s  = Math.sqrt(1 - u * u - v * v);
+      // Randomly assign hemisphere sign so stars cover the full sphere
+      const sign = Math.random() < 0.5 ? 1 : -1;
+      pos[i * 3 + 0] = radius * 2 * u * s;
+      pos[i * 3 + 1] = radius * 2 * v * s;
+      pos[i * 3 + 2] = radius * sign * (1 - 2 * (u * u + v * v));
+      i++;
     }
+
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
-      color:       layer === 0 ? 0xffffff : 0xaabbff,
-      size:        layer === 0 ? 0.22 : 0.38,
-      transparent: true,
-      opacity:     layer === 0 ? 0.6 : 0.8
+      color,
+      size,
+      transparent:     true,
+      opacity,
+      sizeAttenuation: false,  // stars stay same angular size at all zoom levels
+      depthWrite:      false
     })));
   });
 }
