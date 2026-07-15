@@ -32,13 +32,12 @@ window.PanelManager = (() => {
 
 (function initPanelManager() {
   document.addEventListener("DOMContentLoaded", () => {
-    // Filters floating panel
+
     PanelManager.register("filters", () => {
       const panel = document.getElementById("filter-panel");
       if (panel) panel.classList.add("hidden");
     });
 
-    // Search result dropdown panel
     PanelManager.register("search", () => {
       const box = document.getElementById("search-results");
       if (!box) return;
@@ -46,21 +45,24 @@ window.PanelManager = (() => {
       box.innerHTML = "";
     });
 
-    // Inspector floating panel (reuses existing cleanup behavior)
+    // preserveSearch: true is the fix.
+    // Without it: PanelManager.open("search") → closeAllExcept("search")
+    // → this callback → closeInspector() → sat-search.value = ""
+    // → input wiped after every keystroke.
     PanelManager.register("inspector", () => {
       if (typeof closeInspector === "function") {
-        closeInspector({ skipPanelManager: true });
+        closeInspector({ preserveSearch: true });
         return;
       }
       const panel = document.getElementById("inspector");
       if (panel) panel.classList.add("hidden");
     });
 
-    // Forecast major overlay view
     PanelManager.register("forecast", () => {
       const foreView = document.getElementById("forecast-view");
       if (foreView) foreView.classList.add("hidden");
       if (typeof setForecastVisible === "function") setForecastVisible(false);
     });
+
   });
 })();
