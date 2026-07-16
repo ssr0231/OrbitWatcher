@@ -341,7 +341,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   cursor: pointer;
   color: #8fa4d8;
   position: relative;
-  transition: border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease, transform 0.16s ease;
+  transition: border-color 0.16s ease, color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .display-icon-btn svg {
@@ -459,6 +459,19 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .alert-risk-medium   { color: var(--risk-medium); }
 .alert-risk-low      { color: var(--risk-low); }
 
+/* ── Page views (Analytics / Forecast / Maneuvers) ───────
+   Views use opacity + visibility for transitions instead of
+   display:none, allowing smooth 180ms fades between pages.
+
+   .view.hidden overrides the global .hidden{display:none!important}
+   rule using higher specificity (two classes vs one). The view
+   remains display:block but is visually hidden via opacity:0,
+   pointer-events:none, and visibility:hidden (which also removes
+   it from the tab-focus order).
+
+   router.js continues to add/remove .hidden exactly as before —
+   no JavaScript changes required for this transition to work.
+   ─────────────────────────────────────────────────────── */
 .view {
   position: absolute;
   top: 58px;
@@ -467,6 +480,18 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   overflow-y: auto;
   padding: 32px 36px 48px;
   background: var(--bg);
+  opacity: 1;
+  visibility: visible;
+  transition: opacity 0.18s ease, visibility 0.18s ease;
+}
+
+/* Higher specificity (.view.hidden) overrides .hidden{display:none}
+   so the element stays in layout flow and can animate. */
+.view.hidden {
+  display: block !important;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
 
 .hidden { display: none !important; }
