@@ -26,6 +26,12 @@ let _cameraOrbitState = 0;
 const _ORBIT_SPEEDS   = [0.00010, 0.00028, 0.00055, 0];
 const _ORBIT_RESUME_MS = 1000;
 
+// ── Shell view state ───────────────────────────────────
+// When enabled, all satellites are projected to a uniform orbital
+// shell radius, collapsing altitude variation while preserving
+// orbital plane geometry. Reveals constellation coverage pattern.
+let _shellViewEnabled = false;
+
 // ── Selection trail state ──────────────────────────────
 let _primTrail  = null, _primMarker  = null, _primRec  = null;
 let _secTrail   = null, _secMarker   = null, _secRec   = null;
@@ -185,6 +191,19 @@ function globeFaceSatellite(eciPos) {
   const tz = -eciPos.y / mag;
   _cameraTheta = Math.atan2(tx, tz);
   _cameraPhi   = Math.asin(Math.max(-1, Math.min(1, ty)));
+}
+
+// ── Shell view public API ──────────────────────────────
+// Called by satellites.js every frame to check whether to project
+// satellites to the uniform shell radius or use real positions.
+function isShellViewEnabled() {
+  return _shellViewEnabled;
+}
+
+// Toggles shell view on/off and updates the button indicator.
+function toggleShellView() {
+  _shellViewEnabled = !_shellViewEnabled;
+  _updateGlobeDisplayControlsUI();
 }
 
 // ── Conjunction lines ──────────────────────────────────
@@ -378,23 +397,6 @@ function initGlobe() {
   _updateGlobeDisplayControlsUI();
 }
 
-// ── Starfield ──────────────────────────────────────────
-// Previous implementation used random Cartesian spread which creates
-// uneven star distribution — dense clusters in some directions, visible
-// holes in others. The fix uses uniform sphere surface sampling via the
-// Marsaglia method: generate two uniform random numbers, reject if they
-// fall outside the unit circle, then map the accepted pair to a point
-// on the sphere surface. This guarantees every direction in the sky
-// has the same expected star density.
-//
-// sizeAttenuation: false means stars stay the same angular pixel size
-// regardless of zoom level — exactly how real stars appear. With
-// sizeAttenuation: true they shrink as you zoom out, which looks wrong.
-//
-// Three layers create depth:
-//   Layer 0: 9000 dim white stars, size 0.7px  — distant background
-//   Layer 1: 1500 slightly brighter blue-white, size 1.1px — mid-field
-//   Layer 2:  200 bright white prominent stars, size 1.8px — foreground
 function buildStarfield() {
   const layers = [
     { count: 9000, radius: 500, color: 0xffffff, size: 0.7,  opacity: 0.55 },
@@ -405,24 +407,17 @@ function buildStarfield() {
   layers.forEach(({ count, radius, color, size, opacity }) => {
     const pos = new Float32Array(count * 3);
     let   i   = 0;
-
-    // Marsaglia uniform sphere sampling — no trigonometry, no clustering.
-    // Rejection rate is exactly 1 - π/4 ≈ 21.5%, so we need ~1.28× attempts
-    // on average. In practice this loop fills count points very quickly.
     while (i < count) {
       const u = Math.random() * 2 - 1;
       const v = Math.random() * 2 - 1;
-      if (u * u + v * v >= 1) continue;  // reject — outside unit circle
-
-      const s  = Math.sqrt(1 - u * u - v * v);
-      // Randomly assign hemisphere sign so stars cover the full sphere
+      if (u * u + v * v >= 1) continue;
+      const s    = Math.sqrt(1 - u * u - v * v);
       const sign = Math.random() < 0.5 ? 1 : -1;
       pos[i * 3 + 0] = radius * 2 * u * s;
       pos[i * 3 + 1] = radius * 2 * v * s;
       pos[i * 3 + 2] = radius * sign * (1 - 2 * (u * u + v * v));
       i++;
     }
-
     const geo = new THREE.BufferGeometry();
     geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
     scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
@@ -430,7 +425,7 @@ function buildStarfield() {
       size,
       transparent:     true,
       opacity,
-      sizeAttenuation: false,  // stars stay same angular size at all zoom levels
+      sizeAttenuation: false,
       depthWrite:      false
     })));
   });
@@ -625,6 +620,14 @@ function _updateGlobeDisplayControlsUI() {
     orbitBtn.title = labels[_cameraOrbitState];
     orbitBtn.setAttribute("aria-label", labels[_cameraOrbitState]);
     orbitBtn.classList.toggle("is-active", _cameraOrbitState < 3);
+  }
+
+  const shellBtn = document.getElementById("btn-shell-view");
+  if (shellBtn) {
+    const label = _shellViewEnabled ? "Shell View: ON" : "Shell View: OFF";
+    shellBtn.title = label;
+    shellBtn.setAttribute("aria-label", label);
+    shellBtn.classList.toggle("is-active", _shellViewEnabled);
   }
 }
 

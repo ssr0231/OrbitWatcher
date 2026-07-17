@@ -2,6 +2,12 @@
 
 const SAT_SCALE = 1.0 / 6371.0;
 
+// Shell view radius in scene units.
+// Earth surface = 1.0. Starlink real orbits ≈ 1.085 (540km altitude).
+// Shell is set to 1.18 (≈ 1147km altitude) — visually above real orbits
+// so the constellation pattern is clearly distinct from Earth's surface.
+const SHELL_RADIUS = 2.2;
+
 let satellitePoints = null;
 let satPositions    = null;
 let satColors       = null;
@@ -62,7 +68,7 @@ function buildHaloGeometry() {
     size:            0.038,
     vertexColors:    true,
     map:             _haloTex,
-    alphaTest:       0.01,        // KEY FIX: discard transparent corners → circles not squares
+    alphaTest:       0.01,
     transparent:     true,
     opacity:         1.0,
     blending:        THREE.AdditiveBlending,
@@ -74,6 +80,16 @@ function buildHaloGeometry() {
   earthGroup.add(haloPoints);
 }
 
+// Projects a scene-space position to the shell radius.
+// Takes the (tx, ty, tz) already in Three.js scene coordinates
+// and returns the same direction but at SHELL_RADIUS distance.
+function _projectToShell(tx, ty, tz) {
+  const mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
+  if (mag < 0.01) return [tx, ty, tz];
+  const scale = SHELL_RADIUS / mag;
+  return [tx * scale, ty * scale, tz * scale];
+}
+
 function updateHaloPositions() {
   if (!haloPoints || !haloPositions || !_haloSatIndices.length) return;
 
@@ -81,6 +97,7 @@ function updateHaloPositions() {
   const R     = 6371.0;
   const s     = SAT_SCALE;
   const pulse = 0.40 + 0.60 * Math.abs(Math.sin(Date.now() * 0.0028));
+  const shell = typeof isShellViewEnabled === "function" && isShellViewEnabled();
 
   for (let h = 0; h < _haloSatIndices.length; h++) {
     const idx = _haloSatIndices[h];
@@ -101,9 +118,17 @@ function updateHaloPositions() {
         continue;
       }
 
-      haloPositions[h * 3 + 0] =  p.x * s;
-      haloPositions[h * 3 + 1] =  p.z * s;
-      haloPositions[h * 3 + 2] = -p.y * s;
+      let tx =  p.x * s;
+      let ty =  p.z * s;
+      let tz = -p.y * s;
+
+      if (shell) {
+        [tx, ty, tz] = _projectToShell(tx, ty, tz);
+      }
+
+      haloPositions[h * 3 + 0] = tx;
+      haloPositions[h * 3 + 1] = ty;
+      haloPositions[h * 3 + 2] = tz;
 
     } catch(e) {
       haloPositions[h * 3] = haloPositions[h * 3 + 1] = haloPositions[h * 3 + 2] = 5000;
@@ -111,17 +136,14 @@ function updateHaloPositions() {
     }
 
     if (lvl === 2) {
-      // Critical — pulsing red
       haloColors[h * 3 + 0] = pulse;
       haloColors[h * 3 + 1] = pulse * 0.15;
       haloColors[h * 3 + 2] = pulse * 0.10;
     } else if (lvl === 1) {
-      // High — orange
       haloColors[h * 3 + 0] = 1.00;
       haloColors[h * 3 + 1] = 0.62;
       haloColors[h * 3 + 2] = 0.26;
     } else {
-      // Medium — yellow
       haloColors[h * 3 + 0] = 1.00;
       haloColors[h * 3 + 1] = 0.85;
       haloColors[h * 3 + 2] = 0.30;
@@ -193,8 +215,9 @@ let _lastVisibleCount = -1;
 
 function updateSatellitePositions() {
   if (!satRecords.length || !satPositions) return;
-  const now = getSimTime();
-  const R   = 6371.0;
+  const now   = getSimTime();
+  const R     = 6371.0;
+  const shell = typeof isShellViewEnabled === "function" && isShellViewEnabled();
   let visibleCount = 0;
 
   for (let i = 0; i < satRecords.length; i++) {
@@ -205,7 +228,7 @@ function updateSatellitePositions() {
       const p = pv.position;
       const s = SAT_SCALE;
 
-      const alt = Math.sqrt(p.x**2 + p.y**2 + p.z**2) - R;
+      const alt        = Math.sqrt(p.x**2 + p.y**2 + p.z**2) - R;
       const isHighRisk = conjunctionSet.has(satRecords[i].id);
 
       if (!passesFilters(alt, isHighRisk)) {
@@ -216,9 +239,21 @@ function updateSatellitePositions() {
       }
 
       visibleCount++;
-      satPositions[i*3+0] =  p.x * s;
-      satPositions[i*3+1] =  p.z * s;
-      satPositions[i*3+2] = -p.y * s;
+
+      let tx =  p.x * s;
+      let ty =  p.z * s;
+      let tz = -p.y * s;
+
+      // Shell view: project to uniform radius preserving direction.
+      // This collapses all altitude variation so the full constellation
+      // coverage pattern becomes visible as a spherical shell.
+      if (shell) {
+        [tx, ty, tz] = _projectToShell(tx, ty, tz);
+      }
+
+      satPositions[i*3+0] = tx;
+      satPositions[i*3+1] = ty;
+      satPositions[i*3+2] = tz;
 
       if (isHighRisk) {
         satColors[i*3+0] = 1.0;

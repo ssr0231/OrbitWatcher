@@ -152,16 +152,31 @@
         </svg>
       </button>
 
-      <!-- Camera orbit toggle — new button -->
+      <!-- Camera orbit toggle -->
       <button id="btn-camera-orbit" class="display-icon-btn is-active"
         onclick="toggleCameraOrbit()"
-        title="Camera Orbit: ON"
-        aria-label="Camera Orbit: ON">
+        title="Camera Orbit: Normal — click for Fast"
+        aria-label="Camera Orbit: Normal — click for Fast">
         <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
           <ellipse cx="8" cy="9" rx="5.5" ry="2.2" fill="none"></ellipse>
           <circle cx="13.5" cy="9" r="1.6" fill="currentColor"></circle>
           <line x1="8" y1="9" x2="8" y2="3.5" stroke-dasharray="1.5 1"></line>
           <circle cx="8" cy="3" r="1.3" fill="currentColor"></circle>
+        </svg>
+      </button>
+
+      <!-- Shell view toggle -->
+      <button id="btn-shell-view" class="display-icon-btn"
+        onclick="toggleShellView()"
+        title="Shell View: OFF"
+        aria-label="Shell View: OFF">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <circle cx="8" cy="8" r="5.5" fill="none" stroke-dasharray="2 1.5"></circle>
+          <circle cx="8" cy="8" r="2.2" fill="none"></circle>
+          <circle cx="8" cy="2.5" r="1" fill="currentColor"></circle>
+          <circle cx="13.5" cy="8" r="1" fill="currentColor"></circle>
+          <circle cx="8" cy="13.5" r="1" fill="currentColor"></circle>
+          <circle cx="2.5" cy="8" r="1" fill="currentColor"></circle>
         </svg>
       </button>
 
