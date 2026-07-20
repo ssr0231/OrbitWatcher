@@ -378,12 +378,12 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   box-shadow: 0 0 8px rgba(55, 220, 125, 0.7);
 }
 
+/* ── Collision Alerts panel ───────────────────────────── */
 #side-panel {
   position: absolute;
   top: 70px;
   right: 18px;
   width: 320px;
-  max-height: calc(100vh - 92px);
   background: var(--surface-1);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -395,6 +395,9 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   box-shadow: var(--shadow-card);
 }
 
+/* Panel title is now a clickable toggle button.
+   The red dot (::before) is preserved, the chevron sits
+   on the right via margin-left: auto on the SVG. */
 #panel-title {
   padding: 16px 18px;
   font-size: var(--fs-xs);
@@ -406,16 +409,56 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s;
 }
+#panel-title:hover { background: rgba(111,140,255,0.06); }
+
 #panel-title::before {
   content: "";
   width: 6px; height: 6px;
   border-radius: 50%;
   background: var(--risk-critical);
   box-shadow: 0 0 8px var(--risk-critical);
+  flex-shrink: 0;
 }
 
-#alert-list { overflow-y: auto; flex: 1; padding: 10px; }
+/* Chevron SVG — sits on the far right of the title row.
+   Rotates 180° smoothly when the panel expands. */
+#alerts-chevron {
+  margin-left: auto;
+  width: 14px;
+  height: 14px;
+  stroke: var(--text-tertiary);
+  stroke-width: 2;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex-shrink: 0;
+  transition: transform 0.3s ease, stroke 0.18s;
+  transform: rotate(0deg);
+}
+#alerts-chevron.expanded {
+  transform: rotate(180deg);
+  stroke: var(--accent-bright);
+}
+
+/* Alert list — collapsed by default (max-height: 0).
+   Transitions to full scrollable height when .expanded is added.
+   max-height animation is used because CSS cannot transition to
+   height: auto — max-height achieves the same visual result. */
+#alert-list {
+  overflow: hidden;
+  max-height: 0;
+  padding: 0 10px;
+  transition: max-height 0.3s ease, padding 0.3s ease;
+}
+#alert-list.expanded {
+  overflow-y: auto;
+  max-height: calc(100vh - 180px);
+  padding: 10px;
+}
 
 .alert-item {
   padding: 13px 14px;
@@ -459,19 +502,6 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .alert-risk-medium   { color: var(--risk-medium); }
 .alert-risk-low      { color: var(--risk-low); }
 
-/* ── Page views (Analytics / Forecast / Maneuvers) ───────
-   Views use opacity + visibility for transitions instead of
-   display:none, allowing smooth 180ms fades between pages.
-
-   .view.hidden overrides the global .hidden{display:none!important}
-   rule using higher specificity (two classes vs one). The view
-   remains display:block but is visually hidden via opacity:0,
-   pointer-events:none, and visibility:hidden (which also removes
-   it from the tab-focus order).
-
-   router.js continues to add/remove .hidden exactly as before —
-   no JavaScript changes required for this transition to work.
-   ─────────────────────────────────────────────────────── */
 .view {
   position: absolute;
   top: 58px;
@@ -485,8 +515,6 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   transition: opacity 0.18s ease, visibility 0.18s ease;
 }
 
-/* Higher specificity (.view.hidden) overrides .hidden{display:none}
-   so the element stays in layout flow and can animate. */
 .view.hidden {
   display: block !important;
   opacity: 0;
@@ -941,9 +969,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
   transform: translateX(-50%);
 }
 
-#btn-rotation {
-  margin-left: auto;
-}
+#btn-rotation { margin-left: auto; }
 
 #time-controls .mission-chip,
 #btn-rotation.mission-chip {
@@ -975,9 +1001,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 }
 
 #time-controls .mission-chip:active,
-#btn-rotation.mission-chip:active {
-  transform: translateY(0);
-}
+#btn-rotation.mission-chip:active { transform: translateY(0); }
 
 #time-controls .mission-chip-now {
   color: #9fe7ff;

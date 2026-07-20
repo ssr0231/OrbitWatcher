@@ -1,5 +1,41 @@
 // alerts.js
 
+let _alertsExpanded = false;
+
+// Expands the alert list — called by toggleAlertsPanel and PanelManager.
+function _expandAlerts() {
+  _alertsExpanded = true;
+  const list    = document.getElementById("alert-list");
+  const chevron = document.getElementById("alerts-chevron");
+  if (list)    list.classList.add("expanded");
+  if (chevron) chevron.classList.add("expanded");
+}
+
+// Collapses the alert list — called directly and by PanelManager
+// when another panel opens. Exposed without underscore prefix so
+// panel-manager.js can call it by name in its registered close function.
+function collapseAlerts() {
+  _alertsExpanded = false;
+  const list    = document.getElementById("alert-list");
+  const chevron = document.getElementById("alerts-chevron");
+  if (list)    list.classList.remove("expanded");
+  if (chevron) chevron.classList.remove("expanded");
+}
+
+// Called by #panel-title onclick. Toggles expanded/collapsed state.
+// When expanding: uses PanelManager to close other panels first.
+function toggleAlertsPanel() {
+  if (_alertsExpanded) {
+    collapseAlerts();
+  } else {
+    if (window.PanelManager) {
+      PanelManager.open("alerts", _expandAlerts);
+    } else {
+      _expandAlerts();
+    }
+  }
+}
+
 function renderAlerts(conjunctions) {
   const list = document.getElementById("alert-list");
   list.innerHTML = "";
@@ -9,13 +45,6 @@ function renderAlerts(conjunctions) {
     const vel   = c.relative_velocity_km_s.toFixed(2);
     const risk  = c.risk_score.toExponential(2);
 
-    // Four-tier risk classification — thresholds match the CSS design
-    // system tokens, the KPI strip in dashboard.js, and the backend
-    // analytics.py risk_distribution query exactly.
-    // Critical: < 10 km   → red
-    // High:     10–25 km  → orange
-    // Medium:   25–50 km  → yellow
-    // Low:      ≥ 50 km   → green  (was previously shown as medium)
     let level, riskClass;
     if      (c.miss_distance_km < 10) { level = "critical"; riskClass = "alert-risk-critical"; }
     else if (c.miss_distance_km < 25) { level = "high";     riskClass = "alert-risk-high";     }

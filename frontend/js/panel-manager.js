@@ -45,10 +45,10 @@ window.PanelManager = (() => {
       box.innerHTML = "";
     });
 
-    // preserveSearch: true is the fix.
-    // Without it: PanelManager.open("search") → closeAllExcept("search")
-    // → this callback → closeInspector() → sat-search.value = ""
-    // → input wiped after every keystroke.
+    // preserveSearch: true prevents clearing the search input when
+    // PanelManager closes the inspector as a side effect of another
+    // panel opening (e.g. typing in search opens search dropdown,
+    // which triggers closeAllExcept, which would otherwise wipe input).
     PanelManager.register("inspector", () => {
       if (typeof closeInspector === "function") {
         closeInspector({ preserveSearch: true });
@@ -62,6 +62,11 @@ window.PanelManager = (() => {
       const foreView = document.getElementById("forecast-view");
       if (foreView) foreView.classList.add("hidden");
       if (typeof setForecastVisible === "function") setForecastVisible(false);
+    });
+
+    // Collision alerts panel — collapses when another panel opens.
+    PanelManager.register("alerts", () => {
+      if (typeof collapseAlerts === "function") collapseAlerts();
     });
 
   });

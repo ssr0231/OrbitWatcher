@@ -67,7 +67,12 @@
   </div>
 
   <div id="side-panel">
-    <div id="panel-title">Collision Alerts</div>
+    <div id="panel-title" onclick="toggleAlertsPanel()" aria-label="Toggle collision alerts">
+      Collision Alerts
+      <svg id="alerts-chevron" viewBox="0 0 14 14" aria-hidden="true" focusable="false">
+        <polyline points="2,4 7,10 12,4"></polyline>
+      </svg>
+    </div>
     <div id="alert-list"></div>
   </div>
 
