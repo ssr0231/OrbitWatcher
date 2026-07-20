@@ -9,9 +9,18 @@ function renderAlerts(conjunctions) {
     const vel   = c.relative_velocity_km_s.toFixed(2);
     const risk  = c.risk_score.toExponential(2);
 
-    let level = "medium", riskClass = "alert-risk-medium";
-    if (c.miss_distance_km < 10)      { level = "critical"; riskClass = "alert-risk-critical"; }
-    else if (c.miss_distance_km < 25) { level = "high";     riskClass = "alert-risk-high"; }
+    // Four-tier risk classification — thresholds match the CSS design
+    // system tokens, the KPI strip in dashboard.js, and the backend
+    // analytics.py risk_distribution query exactly.
+    // Critical: < 10 km   → red
+    // High:     10–25 km  → orange
+    // Medium:   25–50 km  → yellow
+    // Low:      ≥ 50 km   → green  (was previously shown as medium)
+    let level, riskClass;
+    if      (c.miss_distance_km < 10) { level = "critical"; riskClass = "alert-risk-critical"; }
+    else if (c.miss_distance_km < 25) { level = "high";     riskClass = "alert-risk-high";     }
+    else if (c.miss_distance_km < 50) { level = "medium";   riskClass = "alert-risk-medium";   }
+    else                               { level = "low";      riskClass = "alert-risk-low";      }
 
     const item = document.createElement("div");
     item.className = `alert-item alert-${level}`;
@@ -28,20 +37,16 @@ function renderAlerts(conjunctions) {
         .forEach(el => el.classList.remove("selected"));
       item.classList.add("selected");
 
-      // Find both satellite records
       const rec1 = satRecords.find(r => r.name === c.sat1_name);
       const rec2 = satRecords.find(r => r.name === c.sat2_name);
 
-      // Clear any existing trails first
       clearSelectionTrail();
 
-      // Draw teal orbit trail for sat1, open inspector for it
       if (rec1) {
         openInspector(c.sat1_name, rec1, [c]);
         drawSelectionTrail(rec1);
       }
 
-      // Draw red orbit trail for sat2
       if (rec2) {
         drawSecondaryTrail(rec2);
       }
