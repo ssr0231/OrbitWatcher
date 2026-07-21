@@ -827,6 +827,13 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 .insp-conj-card.insp-conj-high { background: var(--risk-high-bg); border-left-color: var(--risk-high); }
 .insp-conj-name { color: var(--text-primary); font-weight: 700; font-size: var(--fs-sm); }
 .insp-conj-detail { color: var(--text-tertiary); font-size: var(--fs-xs); margin-top: 3px; font-family: var(--font-mono); }
+.insp-conj-tca {
+  font-size: var(--fs-2xs);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+}
 
 #sim-block {
   margin-top: 6px;

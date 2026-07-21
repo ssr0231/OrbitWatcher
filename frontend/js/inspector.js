@@ -1,5 +1,55 @@
 // inspector.js
 
+// ── TCA formatter ──────────────────────────────────────
+// Converts raw tca_seconds from the API into a human-readable string
+// with urgency color coding. Returns { text, color } or null if no
+// meaningful TCA is available.
+//
+// Color urgency tiers (for upcoming TCAs only):
+//   < 1 hour  → --risk-critical (red)   — imminent
+//   < 6 hours → --risk-high     (orange) — soon
+//   < 24 hrs  → --risk-medium   (yellow) — today
+//   ≥ 24 hrs  → --text-secondary         — routine
+//
+// Past TCAs are shown in --text-tertiary (already occurred).
+// The sentinel value ≥ 999 means TCA could not be computed.
+function _formatTCA(seconds) {
+  if (seconds === undefined || seconds === null) return null;
+
+  if (seconds >= 999) {
+    return { text: "TCA undetermined", color: "var(--text-disabled)" };
+  }
+
+  const abs  = Math.abs(seconds);
+  const past = seconds < 0;
+
+  // Build human-readable duration string
+  let timeStr;
+  if (abs < 60) {
+    timeStr = `${Math.round(abs)}s`;
+  } else if (abs < 3600) {
+    const m = Math.floor(abs / 60);
+    const s = Math.floor(abs % 60);
+    timeStr = s > 0 ? `${m}m ${s}s` : `${m}m`;
+  } else {
+    const h = Math.floor(abs / 3600);
+    const m = Math.floor((abs % 3600) / 60);
+    timeStr = m > 0 ? `${h}h ${m}m` : `${h}h`;
+  }
+
+  if (past) {
+    return { text: `TCA ${timeStr} ago`, color: "var(--text-tertiary)" };
+  }
+
+  let color;
+  if      (abs < 3600)  color = "var(--risk-critical)";
+  else if (abs < 21600) color = "var(--risk-high)";
+  else if (abs < 86400) color = "var(--risk-medium)";
+  else                  color = "var(--text-secondary)";
+
+  return { text: `TCA in ${timeStr}`, color };
+}
+
 function openInspector(name, rec, conjunctions) {
   const panel = document.getElementById("inspector");
   const title = document.getElementById("inspector-name");
@@ -8,6 +58,7 @@ function openInspector(name, rec, conjunctions) {
 
   title.textContent = name;
 
+  // ── Live position ──────────────────────────────────────
   let posHTML = "";
   try {
     const pv = satellite.propagate(rec.satrec, getSimTime());
@@ -43,6 +94,7 @@ function openInspector(name, rec, conjunctions) {
     posHTML = `<div class="insp-section"><div class="insp-error">Propagation error</div></div>`;
   }
 
+  // ── Orbital parameters ─────────────────────────────────
   let orbitHTML = "";
   try {
     const s   = rec.satrec;
@@ -75,30 +127,28 @@ function openInspector(name, rec, conjunctions) {
       </div>`;
   } catch(e) { orbitHTML = ""; }
 
+  // ── Active conjunctions ────────────────────────────────
   let conjHTML = "";
   if (conjunctions && conjunctions.length > 0) {
     const items = conjunctions.slice(0, 4).map(c => {
       const other      = c.sat1_name === name ? c.sat2_name : c.sat1_name;
       const isCritical = c.miss_distance_km < 10;
 
-      // TCA display — show only if meaningful (not the 999 sentinel)
-      let tcaStr = "";
-      if (c.tca_seconds !== undefined && c.tca_seconds !== null) {
-        if (c.tca_seconds >= 999) {
-          tcaStr = "TCA undetermined";
-        } else if (c.tca_seconds >= 0) {
-          tcaStr = `TCA in ${c.tca_seconds.toFixed(1)}s`;
-        } else {
-          tcaStr = `TCA ${Math.abs(c.tca_seconds).toFixed(1)}s ago`;
-        }
-      }
+      // TCA — formatted with urgency color, shown on its own line
+      // so it's immediately readable rather than buried in a detail string.
+      const tca = _formatTCA(c.tca_seconds);
+      const tcaHTML = tca
+        ? `<div class="insp-conj-tca" style="color:${tca.color}">${tca.text}</div>`
+        : "";
 
       return `
         <div class="insp-conj-card ${isCritical ? '' : 'insp-conj-high'}">
           <div class="insp-conj-name">${other}</div>
-          <div class="insp-conj-detail">${c.miss_distance_km.toFixed(2)} km · Risk ${c.risk_score.toExponential(2)}${tcaStr ? ' · ' + tcaStr : ''}</div>
+          <div class="insp-conj-detail">${c.miss_distance_km.toFixed(2)} km · Risk ${c.risk_score.toExponential(2)}</div>
+          ${tcaHTML}
         </div>`;
     }).join("");
+
     conjHTML = `
       <div class="insp-section">
         <div class="insp-label">Active Conjunctions</div>
@@ -112,6 +162,7 @@ function openInspector(name, rec, conjunctions) {
       </div>`;
   }
 
+  // ── Maneuver simulation ────────────────────────────────
   let simHTML = "";
   if (conjunctions && conjunctions.length > 0) {
     const topConj     = conjunctions[0];
@@ -159,8 +210,7 @@ function openInspector(name, rec, conjunctions) {
 
   body.innerHTML = posHTML + orbitHTML + conjHTML + simHTML;
 
-  // Draw conjunction lines on the globe connecting selected satellite
-  // to all its conjunction partners. Cleared on closeInspector().
+  // Draw conjunction lines on the globe
   if (conjunctions && conjunctions.length > 0) {
     if (typeof drawConjunctionLines === "function") {
       drawConjunctionLines(conjunctions, name);
@@ -255,14 +305,12 @@ function closeInspector(options = {}) {
   const panel = document.getElementById("inspector");
   if (panel) panel.classList.add("hidden");
 
-  // Clear both orbit trails and conjunction lines
   clearSelectionTrail();
   if (typeof clearConjunctionLines === "function") {
     clearConjunctionLines();
   }
 
-  const preserveSearch = !!options.preserveSearch;
-  if (!preserveSearch) {
+  if (!options.preserveSearch) {
     const s = document.getElementById("sat-search");
     if (s) s.value = "";
   }
