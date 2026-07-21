@@ -523,6 +523,7 @@ button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
 }
 
 .hidden { display: none !important; }
+.hidden-ui { display: none !important; }
 
 .view-title {
   font-size: var(--fs-xl);
