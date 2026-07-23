@@ -1,0 +1,53 @@
+# pyproject.toml
+# Minimal project metadata for OrbitWatch.
+#
+# Purpose (Phase 1):
+#   - Records project name, version, and Python requirement in a
+#     standard machine-readable format.
+#   - Enables: pip install -e . for development (editable install).
+#   - Separates production dependencies from dev/research dependencies
+#     so a production Docker image doesn't need matplotlib.
+#
+# The sys.path.append() calls in backend modules are NOT removed here.
+# That cleanup will happen incrementally in Phase 2 once the editable
+# install is confirmed working. Both approaches coexist safely.
+#
+# To install for development:
+#   pip install -e ".[dev]"
+#
+# To install for production:
+#   pip install -e .
+
+[build-system]
+requires      = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name            = "orbitwatch"
+version         = "1.0.0"
+description     = "Starlink satellite collision risk intelligence platform"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi==0.138.0",
+    "uvicorn==0.49.0",
+    "requests==2.34.2",
+    "sgp4==2.25",
+    "scipy==1.18.0",
+    "numpy==2.5.0",
+    "apscheduler==3.11.2",
+    "python-dotenv==1.2.2",
+]
+
+[project.optional-dependencies]
+# Research and benchmarking tools — not needed in production.
+# Install with: pip install -e ".[dev]"
+dev = [
+    "matplotlib==3.11.0",
+    "pytest",
+    "pytest-asyncio",
+    "httpx",
+]
+
+[tool.setuptools.packages.find]
+where   = ["."]
+include = ["backend*"]
