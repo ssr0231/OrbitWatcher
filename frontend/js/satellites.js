@@ -4,8 +4,8 @@ const SAT_SCALE = 1.0 / 6371.0;
 
 // Shell view radius in scene units.
 // Earth surface = 1.0. Starlink real orbits ≈ 1.085 (540km altitude).
-// Shell is set to 1.18 (≈ 1147km altitude) — visually above real orbits
-// so the constellation pattern is clearly distinct from Earth's surface.
+// Shell is set to 2.2 — visually above real orbits so the constellation
+// pattern is clearly distinct from Earth's surface.
 const SHELL_RADIUS = 2.2;
 
 let satellitePoints = null;
@@ -45,7 +45,7 @@ function buildHaloGeometry() {
     earthGroup.remove(haloPoints);
     haloPoints.geometry.dispose();
     haloPoints.material.dispose();
-    haloPoints = null;
+    haloPoints    = null;
     haloPositions = null;
     haloColors    = null;
   }
@@ -80,9 +80,6 @@ function buildHaloGeometry() {
   earthGroup.add(haloPoints);
 }
 
-// Projects a scene-space position to the shell radius.
-// Takes the (tx, ty, tz) already in Three.js scene coordinates
-// and returns the same direction but at SHELL_RADIUS distance.
 function _projectToShell(tx, ty, tz) {
   const mag = Math.sqrt(tx * tx + ty * ty + tz * tz);
   if (mag < 0.01) return [tx, ty, tz];
@@ -157,7 +154,19 @@ function updateHaloPositions() {
 async function loadSatellites() {
   setStatus("Fetching TLE data from backend...");
   const tles = await fetchTLEs();
-  if (!tles.length) { setStatus("Warning: no TLE data received."); return; }
+
+  // null means fetchTLEs() caught a network/timeout error — the API
+  // call itself failed. Distinct from an empty array, which would mean
+  // the API responded successfully with zero satellites.
+  if (tles === null) {
+    setStatus("⚠ Satellite data unavailable — retry later.", true);
+    return;
+  }
+
+  if (!tles.length) {
+    setStatus("Warning: no TLE data received.");
+    return;
+  }
 
   setStatus(`Parsing ${tles.length} satellite TLEs...`);
   satRecords = [];
@@ -190,10 +199,10 @@ function buildSatelliteGeometry() {
   geometry.setAttribute("color",    new THREE.BufferAttribute(satColors, 3));
 
   const material = new THREE.PointsMaterial({
-    size: 0.008,
+    size:         0.008,
     vertexColors: true,
-    transparent: true,
-    opacity: 0.9,
+    transparent:  true,
+    opacity:      0.9,
     sizeAttenuation: true
   });
 
@@ -244,9 +253,6 @@ function updateSatellitePositions() {
       let ty =  p.z * s;
       let tz = -p.y * s;
 
-      // Shell view: project to uniform radius preserving direction.
-      // This collapses all altitude variation so the full constellation
-      // coverage pattern becomes visible as a spherical shell.
       if (shell) {
         [tx, ty, tz] = _projectToShell(tx, ty, tz);
       }

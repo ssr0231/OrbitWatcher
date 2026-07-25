@@ -36,6 +36,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ── Security headers ───────────────────────────────────────
+# Applied to every response. These headers are standard production
+# hardening that every web application should send. They cost nothing
+# and protect against several classes of attack:
+#
+# X-Content-Type-Options: nosniff
+#   Prevents browsers from MIME-type sniffing. Without this, a browser
+#   might execute a response with Content-Type: text/plain as JavaScript
+#   if the content looks script-like. Eliminates an entire attack vector.
+#
+# X-Frame-Options: DENY
+#   Prevents the application from being embedded in an <iframe> on
+#   another domain. Blocks clickjacking attacks where an attacker
+#   overlays an invisible iframe of OrbitWatch over a malicious page.
+#
+# Referrer-Policy: strict-origin-when-cross-origin
+#   Controls how much referrer information is sent when the browser
+#   navigates away from OrbitWatch. "strict-origin-when-cross-origin"
+#   sends only the origin (not the full path) to cross-origin requests,
+#   preventing leaking of internal navigation paths to CDNs.
+#
+# X-XSS-Protection: 1; mode=block
+#   Enables the browser's built-in XSS filter. Modern browsers handle
+#   this via CSP, but older browsers still use this header. No downside
+#   to setting it.
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"]        = "DENY"
+    response.headers["Referrer-Policy"]        = "strict-origin-when-cross-origin"
+    response.headers["X-XSS-Protection"]       = "1; mode=block"
+    return response
+
 # ── Cache control ──────────────────────────────────────────
 # Applied only to /api/* routes. Static assets (Three.js, Chart.js,
 # textures) should be cached — forcing no-store on them would cause
@@ -50,12 +84,9 @@ async def no_cache_api_responses(request: Request, call_next):
     return response
 
 # ── Global exception handler ───────────────────────────────
-# Catches any unhandled exception that propagates out of a route.
-# Without this, FastAPI's default handler returns the Python exception
-# message in the response body — exposing internal paths, table names,
-# and query structure to clients. This handler:
-#   - Logs the full traceback internally (exc_info=True)
-#   - Returns a generic JSON error to the client (no internal details)
+# Catches any unhandled exception, logs the full traceback internally,
+# and returns a clean JSON response to the client with no internal
+# details exposed.
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     log.error(
@@ -116,20 +147,9 @@ def root():
 @app.get("/health")
 def health():
     """
-    Liveness + readiness probe endpoint.
-
-    Checks both process health (always true if we reach here) and
-    database connectivity (SELECT 1 via check_database()).
-
-    Returns 200 with status "ok" if everything is healthy.
-    Returns 200 with status "degraded" if the database is unreachable
-    — still 200 so the process isn't killed, but the body signals
-    degraded state to monitoring tools that inspect the response body.
-
-    Load balancers that only check the status code will keep routing
-    traffic; monitoring tools that check the JSON body will alert.
-    This is intentional — the app can still serve cached/static
-    content even if the DB is temporarily unavailable.
+    Liveness + readiness probe.
+    Returns 200 with status "ok" if the database is reachable.
+    Returns 200 with status "degraded" if the database is unavailable.
     """
     db_ok = check_database()
     return {
