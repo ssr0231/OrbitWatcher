@@ -4,6 +4,10 @@
 
 OrbitWatch is an end-to-end space situational awareness platform that ingests live Starlink orbital data, propagates 10,000+ satellite orbits using SGP4, detects close approaches using KDTree spatial screening, evaluates collision risk, generates maneuver recommendations, forecasts upcoming encounters, and visualizes the results through an interactive 3D mission-control interface.
 
+**Live Demo:** https://orbitwatcher.onrender.com
+
+> The public demo runs on Render's free tier. After a period of inactivity, the service may require a cold start before the application and live data become available.
+
 ---
 
 ## Overview
@@ -45,25 +49,7 @@ The project emphasizes scalable computation, interpretable risk assessment, repr
 - Health monitoring endpoint
 - Docker and Docker Compose deployment support
 - Fallback to stored orbital data when fresh TLE retrieval is unavailable
-
----
-
-## Screenshots
-
-Screenshots of the globe, analytics dashboard, collision alerts, maneuver panel, and forecast interface can be added to:
-
-```text
-docs/screenshots/
-```
-
-Suggested files:
-
-```text
-docs/screenshots/globe.png
-docs/screenshots/dashboard.png
-docs/screenshots/maneuvers.png
-docs/screenshots/forecast.png
-```
+- Automated pytest suite covering configuration, database behavior, API routes, validation, security headers, and health checks
 
 ---
 
@@ -225,7 +211,7 @@ flowchart TD
 
     E --> F[Risk Assessment]
     F --> G[Maneuver Engine]
-    F --> H[Forecast Engine]
+    E --> H[Forecast Engine]
 
     G --> C
     H --> C
@@ -315,96 +301,50 @@ Results depend on the benchmark environment and should be interpreted in the con
 
 ---
 
-## Risk Scoring Model
+## API
 
-OrbitWatch uses an interpretable ranking model:
+OrbitWatch exposes processed satellite and conjunction intelligence through a FastAPI REST API.
 
-```text
-risk_score = (1 / (distance_km + 1))
-           × (relative_velocity_km_s / 15)
-           × (1 / (time_to_closest_approach_s + 1))
-```
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/v1/tles` | Retrieve stored Starlink TLE records |
+| `GET` | `/api/v1/conjunctions` | Retrieve risk-ranked conjunction events |
+| `GET` | `/api/v1/analytics` | Retrieve catalog and risk analytics |
+| `GET` | `/api/v1/maneuvers` | Retrieve generated maneuver recommendations |
+| `GET` | `/api/v1/maneuvers/{conjunction_id}` | Retrieve a maneuver for a specific conjunction |
+| `GET` | `/api/v1/forecast` | Retrieve upcoming forecast events |
+| `GET` | `/health` | Application and database health check |
 
-Where:
-
-| Factor | Interpretation |
-|---|---|
-| `distance_km` | Smaller miss distance increases risk |
-| `relative_velocity_km_s` | Higher relative velocity increases encounter severity |
-| `time_to_closest_approach_s` | Less remaining time increases operational urgency |
-
-The score is intended for **relative prioritization of conjunction events**. It is not an absolute physical probability of collision.
-
----
-
-## API Reference
-
-OrbitWatch exposes a REST API through FastAPI.
-
-Interactive Swagger documentation is available at:
+Interactive OpenAPI documentation is available at:
 
 ```text
 /docs
 ```
 
-### Endpoints
-
-| Method | Endpoint | Parameters | Description |
-|---|---|---|---|
-| GET | `/api/v1/tles` | — | Retrieve Starlink TLE records |
-| GET | `/api/v1/conjunctions` | `limit` | Retrieve risk-ranked conjunction events |
-| GET | `/api/v1/analytics` | — | Retrieve aggregate risk and catalog statistics |
-| GET | `/api/v1/maneuvers` | `limit` | Retrieve maneuver recommendations |
-| GET | `/api/v1/maneuvers/{conjunction_id}` | — | Retrieve maneuver details for a conjunction |
-| GET | `/api/v1/forecast` | `limit` | Retrieve predicted upcoming encounters |
-| GET | `/health` | — | Application and database health probe |
-
-The validated limits currently documented by the application are:
-
-| Endpoint | Allowed `limit` | Default |
-|---|---:|---:|
-| `/api/v1/conjunctions` | 1–500 | 100 |
-| `/api/v1/maneuvers` | 1–500 | 50 |
-| `/api/v1/forecast` | 1–500 | 200 |
-
-### Health Check
-
-Request:
-
-```http
-GET /health
-```
-
-Healthy response:
-
-```json
-{
-  "status": "ok",
-  "version": "1.0.0",
-  "database": "ok"
-}
-```
-
-The endpoint is used by the Docker health check and can also be used by deployment platforms, load balancers, and uptime monitoring services.
-
 ---
 
-## Database
+## Testing
 
-OrbitWatch uses SQLite with WAL mode for lightweight persistence and efficient concurrent reads.
+OrbitWatch includes an automated pytest suite covering release-critical backend behavior without depending on the live CelesTrak service or the production database.
 
-### Core Tables
+The suite covers:
 
-| Table | Purpose |
-|---|---|
-| `satellites` | Canonical TLE records for tracked Starlink satellites |
-| `conjunctions` | Detected close approaches and calculated risk information |
-| `maneuvers` | Maneuver recommendations associated with conjunction events |
-| `forecast` | Predicted upcoming conjunction events |
+- Application configuration and environment parsing
+- Database initialization, schema, indexes, and connection cleanup
+- Database health checking
+- Health endpoint behavior
+- API response structure and validation
+- Satellite, conjunction, analytics, maneuver, and forecast routes
+- Security and cache-control headers
+- Isolated temporary database behavior
 
-The database includes indexes for frequently queried risk, satellite-pair, and forecast data.
+Run the complete test suite from the project root:
 
-Database initialization and schema validation happen automatically during application startup.
+```bash
+pytest -v
+```
+
+The v1.0 release candidate was validated with **94 passing automated tests**.
 
 ---
 
@@ -421,7 +361,9 @@ Database initialization and schema validation happen automatically during applic
 | 3D Visualization | Three.js |
 | Browser Orbital Processing | satellite.js |
 | Analytics | Chart.js |
+| Testing | pytest, FastAPI TestClient |
 | Containerization | Docker, Docker Compose |
+| Deployment | Render |
 | Data Source | CelesTrak |
 | API Documentation | OpenAPI / Swagger UI |
 
@@ -435,6 +377,7 @@ OrbitWatcher/
 ├── config.py
 ├── logger.py
 ├── run.py
+├── pytest.ini
 │
 ├── requirements.txt
 ├── requirements.prod.txt
@@ -490,6 +433,13 @@ OrbitWatcher/
 │       ├── export.js
 │       ├── panel-manager.js
 │       └── router.js
+│
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── test_config.py
+│   ├── test_database.py
+│   └── test_routes.py
 │
 ├── data/
 ├── logs/
@@ -557,9 +507,44 @@ OrbitWatch includes several features intended to make the application more robus
 - External request timeouts and retry logic
 - Persisted orbital data fallback when upstream retrieval fails
 - Docker health monitoring
-- Persistent database and log volumes
+- Persistent database and log volumes for Docker-based deployments
 - Non-root container execution
 - Graceful application shutdown
+
+### Public Deployment
+
+The v1.0 release candidate has been validated through a public Render deployment:
+
+```text
+https://orbitwatcher.onrender.com
+```
+
+Production validation confirmed successful application startup, CelesTrak TLE retrieval, database initialization, API availability, satellite loading, and frontend visualization.
+
+The current public demo uses Render's free tier. Its filesystem should be treated as ephemeral, and the service may cold-start after inactivity. Persistent Docker volumes described elsewhere in this README apply to Docker/Compose deployments and should not be interpreted as persistent storage guarantees for the Render free-tier demo.
+
+---
+
+## Pre-Production Checklist
+
+Before exposing another OrbitWatch deployment to the public internet, verify the relevant environment configuration:
+
+| Setting | Development | Production |
+|---|---|---|
+| `ALLOWED_ORIGINS` | `*` | Explicit application/domain origin |
+| `LOG_LEVEL` | `INFO` | Set according to operational logging requirements |
+| `HOST` | `127.0.0.1` or `0.0.0.0` | `0.0.0.0` for container/hosted deployments |
+| `PORT` | `8000` | Platform-provided value where applicable |
+| `DATABASE_PATH` | `data/orbitwatch.db` | Persistent storage path where persistence is required |
+
+Also verify:
+
+- `/health` returns a healthy application and database status
+- CelesTrak can be reached from the deployment environment
+- The startup pipeline completes successfully
+- The scheduler runs as a single application instance
+- Database and log persistence match the hosting environment's guarantees
+- Browser console and major API endpoints are error-free
 
 ---
 
@@ -572,6 +557,8 @@ The current risk score is an interpretable prioritization heuristic and **not a 
 TLE accuracy, propagation uncertainty, covariance information, spacecraft dimensions, operator constraints, and other operational factors can materially affect real-world collision assessment.
 
 OrbitWatch is intended for research, education, engineering experimentation, and visualization rather than operational spacecraft control.
+
+The public Render demo also has hosting-specific limitations, including cold starts and non-persistent free-tier filesystem storage. These are deployment-platform constraints rather than limitations of the local Docker configuration.
 
 ---
 
@@ -603,7 +590,9 @@ Potential future work includes:
 - Forecasts upcoming close approaches
 - Provides an interactive 3D mission-control interface
 - Exposes processed data through a FastAPI REST API
+- Includes an automated release-validation test suite
 - Supports Docker-based portable deployment
+- Validated through a live public deployment
 - Includes reproducible benchmark artifacts
 
 ---
@@ -619,12 +608,12 @@ See `LICENSE` for details.
 ## Author
 
 **Shubham Singh**  
-Final-year Computer Science & Engineering student
+Creator and primary developer of OrbitWatch.
 
-Areas of focus:
+Final-year Computer Science & Engineering student focused on orbital mechanics, spatial algorithms, collision-risk analysis, full-stack engineering, and scientific visualization.
 
-- Orbital Mechanics
-- Spatial Algorithms
-- Collision Risk Analysis
-- Full Stack Engineering
-- Scientific Visualization
+GitHub: **@ssr0231**
+
+---
+
+**OrbitWatch v1.0.0**
