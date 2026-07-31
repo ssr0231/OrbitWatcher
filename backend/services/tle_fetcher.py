@@ -15,12 +15,28 @@ import requests
 from config import (
     CELESTRAK_STARLINK_TLE_URL,
     FETCH_RETRY_LIMIT,
-    FETCH_RETRY_DELAY_SECONDS
+    FETCH_RETRY_DELAY_SECONDS,
+    APP_VERSION,
 )
 from logger import get_logger
 from backend.database import get_connection
 
 log = get_logger(__name__)
+
+# Identify this client to CelesTrak per their usage policy.
+# Generic requests without a User-Agent can trigger rate limiting.
+_HEADERS = {
+    "User-Agent": f"OrbitWatch/{APP_VERSION} (research project; automated TLE fetch)"
+}
+
+# Separate connect and read timeouts.
+# timeout=30 (the old value) is a READ timeout only — it means "wait
+# 30 seconds for data to start arriving." It does NOT limit the TCP
+# handshake. If CelesTrak's server is up but not accepting connections,
+# the request hangs indefinitely.
+# (connect_timeout, read_timeout): 15s to establish connection,
+# 60s to receive the full TLE payload (~3 MB of text).
+_TIMEOUT = (15, 60)
 
 
 def fetch_tles_from_celestrak():
@@ -31,7 +47,11 @@ def fetch_tles_from_celestrak():
     for attempt in range(1, FETCH_RETRY_LIMIT + 1):
         try:
             log.info(f"Fetching TLEs from CelesTrak (attempt {attempt}/{FETCH_RETRY_LIMIT})...")
-            response = requests.get(CELESTRAK_STARLINK_TLE_URL, timeout=30)
+            response = requests.get(
+                CELESTRAK_STARLINK_TLE_URL,
+                timeout=_TIMEOUT,
+                headers=_HEADERS,
+            )
 
             if response.status_code != 200:
                 raise ValueError(f"HTTP {response.status_code}")
@@ -47,7 +67,6 @@ def fetch_tles_from_celestrak():
                 line1 = lines[i + 1].strip()
                 line2 = lines[i + 2].strip()
 
-                # Basic TLE format validation
                 if not line1.startswith("1 ") or not line2.startswith("2 "):
                     continue
 
@@ -83,7 +102,6 @@ def store_tles(satellites: list):
     cursor = conn.cursor()
     now = datetime.now(timezone.utc).isoformat()
 
-    # Full refresh: delete old data, insert new
     cursor.execute("DELETE FROM satellites")
 
     cursor.executemany("""

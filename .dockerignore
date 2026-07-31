@@ -1,0 +1,63 @@
+# Version control
+.git/
+.gitignore
+
+# Environment files — never bake secrets into the image
+.env
+.env.example
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Runtime database — mounted separately in production
+data/orbitwatch.db
+*.db
+*.sqlite
+
+# Runtime logs
+logs/
+*.log
+
+# Research and benchmark files
+backend/benchmark.py
+backend/generate_figures.py
+benchmark_completeness.json
+benchmark_scalability.json
+pipeline_timing.json
+figures/
+
+# Documentation
+docs/
+README.md
+
+# Build / packaging files
+dist/
+build/
+*.egg-info/
+.eggs/
+pyproject.toml
+
+# Tests and coverage
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Docker configuration isn't required inside the runtime image
+Dockerfile
+docker-compose.yml
+
+# IDE files
+.vscode/
+.idea/
+
+# Operating system files
+.DS_Store
+Thumbs.db

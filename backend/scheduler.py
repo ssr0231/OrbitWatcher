@@ -67,10 +67,38 @@ def start_scheduler():
         trigger=IntervalTrigger(hours=SCHEDULER_INTERVAL_HOURS),
         id="main_pipeline",
         name="OrbitWatch main pipeline",
-        replace_existing=True
+        replace_existing=True,
+
+        # ── Overlap protection ─────────────────────────────
+        # max_instances=1: only one pipeline run can be active at a
+        # time. If a pipeline run somehow takes longer than 6 hours
+        # (e.g., CelesTrak is slow), the next scheduled run is skipped
+        # rather than starting a second concurrent pipeline. Without
+        # this, two pipelines writing to SQLite simultaneously would
+        # cause database locking errors.
+        max_instances=1,
+
+        # coalesce=True: if the scheduler misses one or more fire times
+        # (e.g., the server was briefly down or suspended), it runs the
+        # job ONCE when it recovers rather than immediately running it
+        # multiple times to "catch up". Prevents a burst of back-to-back
+        # pipeline runs after a server restart.
+        coalesce=True,
+
+        # misfire_grace_time: if the job was supposed to fire but was
+        # delayed by up to this many seconds (e.g., the event loop was
+        # busy), still run it. If delayed more than this, treat it as
+        # a missed fire and apply coalesce behaviour.
+        # 3600 seconds = 1 hour — generous enough to handle a slow
+        # startup pipeline without silently skipping a scheduled cycle.
+        misfire_grace_time=3600,
     )
     scheduler.start()
-    log.info(f"Scheduler started — pipeline runs every {SCHEDULER_INTERVAL_HOURS} hours.")
+    log.info(
+        f"Scheduler started — pipeline runs every "
+        f"{SCHEDULER_INTERVAL_HOURS} hour(s). "
+        f"[max_instances=1, coalesce=True, grace=3600s]"
+    )
     return scheduler
 
 

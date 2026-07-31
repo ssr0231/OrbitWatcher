@@ -3,6 +3,22 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
+  <!-- Production meta tags ─────────────────────────────── -->
+  <!-- Description appears in search results and link previews. -->
+  <meta name="description"
+    content="OrbitWatch — Real-time Starlink satellite collision risk intelligence. Live conjunction screening, risk scoring, and maneuver recommendations for 10,000+ satellites."/>
+
+  <!-- Controls search engine indexing.
+       "noindex" keeps this off public search results (appropriate for
+       a research/portfolio tool). Change to "index, follow" if you
+       want the app indexed publicly. -->
+  <meta name="robots" content="noindex, nofollow"/>
+
+  <!-- Colours the browser chrome on Android / PWA installs.
+       Matches the app's --bg token (#06070f). -->
+  <meta name="theme-color" content="#06070f"/>
+
   <title>OrbitWatch — Starlink Collision Intelligence</title>
   <link rel="stylesheet" href="/static/css/style.css"/>
 </head>
@@ -14,11 +30,11 @@
       <span id="live-dot" title="Live data feed active"></span>
     </div>
     <div id="nav">
-      <button class="nav-btn active" id="btn-globe"     onclick="showView('globe')">Globe</button>
-      <button class="nav-btn"        id="btn-dashboard" onclick="showView('dashboard')">Analytics</button>
-      <button class="nav-btn"        id="btn-maneuvers" onclick="showView('maneuvers')">Maneuvers</button>
+      <button class="nav-btn active" id="btn-globe"         onclick="showView('globe')">Globe</button>
+      <button class="nav-btn"        id="btn-dashboard"     onclick="showView('dashboard')">Analytics</button>
+      <button class="nav-btn"        id="btn-maneuvers"     onclick="showView('maneuvers')">Maneuvers</button>
       <button class="nav-btn"        id="btn-filter-toggle" onclick="toggleFilterPanel()" title="Show / hide satellite filters">⚙ Filters</button>
-      <button class="nav-btn"        id="btn-forecast" onclick="showView('forecast')">Forecast</button>
+      <button class="nav-btn"        id="btn-forecast"      onclick="showView('forecast')">Forecast</button>
     </div>
     <div id="stats">
       <span id="stat-sats">Satellites: —</span>
@@ -187,12 +203,12 @@
 
     </div>
     <div id="time-controls">
-      <button class="btn-control mission-chip" onclick="timeRewind(60)"  title="Rewind 1 hour" aria-label="Rewind 1 hour">⏮</button>
-      <button class="btn-control mission-chip" onclick="timeRewind(10)"  title="Rewind 10 minutes" aria-label="Rewind 10 minutes">⏪</button>
+      <button class="btn-control mission-chip" onclick="timeRewind(60)"  title="Rewind 1 hour"        aria-label="Rewind 1 hour">⏮</button>
+      <button class="btn-control mission-chip" onclick="timeRewind(10)"  title="Rewind 10 minutes"    aria-label="Rewind 10 minutes">⏪</button>
       <button class="btn-control mission-chip mission-chip-pause" id="btn-time-pause" onclick="timeTogglePause()" title="Pause simulation time" aria-label="Pause simulation time">⏸</button>
-      <button class="btn-control mission-chip" onclick="timeForward(10)" title="Forward 10 minutes" aria-label="Forward 10 minutes">⏩</button>
-      <button class="btn-control mission-chip" onclick="timeForward(60)" title="Forward 1 hour" aria-label="Forward 1 hour">⏭</button>
-      <button class="btn-control mission-chip mission-chip-now" onclick="timeRealtime()"  title="Jump to real time" aria-label="Jump to real time">⏺</button>
+      <button class="btn-control mission-chip" onclick="timeForward(10)" title="Forward 10 minutes"   aria-label="Forward 10 minutes">⏩</button>
+      <button class="btn-control mission-chip" onclick="timeForward(60)" title="Forward 1 hour"       aria-label="Forward 1 hour">⏭</button>
+      <button class="btn-control mission-chip mission-chip-now" onclick="timeRealtime()" title="Jump to real time" aria-label="Jump to real time">⏺</button>
     </div>
     <button id="btn-rotation" class="btn-control mission-chip" onclick="toggleRotation()" title="Pause Earth rotation" aria-label="Pause Earth rotation">⏸</button>
   </div>
