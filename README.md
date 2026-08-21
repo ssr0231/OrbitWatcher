@@ -4,8 +4,11 @@
 
 OrbitWatch is an end-to-end space situational awareness platform that ingests live Starlink orbital data, propagates 10,000+ satellite orbits using SGP4, detects close approaches using KDTree spatial screening, evaluates collision risk, generates maneuver recommendations, forecasts upcoming encounters, and visualizes the results through an interactive 3D mission-control interface.
 
-**Live Demo:** https://orbitwatcher.onrender.com
+🌐 **Live Demo:** https://orbitwatch.tech  
+🔗 **Render URL:** https://orbitwatcher.onrender.com
 
+> The custom domain `orbitwatch.tech` is the primary public URL. The Render URL is retained as a fallback and may be used if the custom domain is unavailable.
+>
 > The public demo runs on Render's free tier. After a period of inactivity, the service may require a cold start before the application and live data become available.
 
 ---
